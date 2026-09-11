@@ -14,9 +14,9 @@ const OFFLINE_HTML = `<!doctype html><html lang="es"><head><meta charset="utf-8"
 <title>Sin conexión</title>
 <style>body{font-family:system-ui,sans-serif;background:#f9fafb;color:#111827;
 display:flex;min-height:100vh;margin:0;align-items:center;justify-content:center;text-align:center;padding:2rem}
-.b{width:56px;height:56px;border-radius:1rem;background:#b51927;color:#fff;font-weight:800;font-size:1.5rem;
+.b{width:56px;height:56px;border-radius:1rem;background:#b51927;color:#fff;
 display:flex;align-items:center;justify-content:center;margin:0 auto 1rem}</style></head>
-<body><div><div class="b">T</div><h1>Sin conexión</h1>
+<body><div><div class="b"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div><h1>Sin conexión</h1>
 <p>Abre la app cuando tengas señal. Tus datos guardados se enviarán solos.</p>
 <button onclick="location.reload()" style="margin-top:1rem;padding:.75rem 1.5rem;border:0;border-radius:.75rem;background:#b51927;color:#fff;font-weight:700">Reintentar</button>
 </div></body></html>`;
@@ -73,7 +73,7 @@ self.addEventListener('fetch', (event) => {
     // Assets del build, íconos, manifest, fuentes: cache primero.
     if (
         url.pathname.startsWith(`${BASE}/build/`) ||
-        url.pathname.startsWith(`${BASE}/img/conductor/`) ||
+        url.pathname.startsWith(`${BASE}/recursos/pwa/`) ||
         url.pathname.endsWith('.webmanifest') ||
         /\.(?:js|css|woff2?|png|svg|jpg|jpeg|webp)$/.test(url.pathname)
     ) {

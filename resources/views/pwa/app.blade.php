@@ -9,9 +9,10 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <link rel="manifest" href="{{ route('pwa.manifest') }}">
-    <link rel="apple-touch-icon" href="{{ asset('img/conductor/apple-touch-icon.png') }}">
+    <link rel="icon" href="{{ asset('recursos/pwa/favicon.ico') }}" sizes="any">
+    <link rel="apple-touch-icon" href="{{ asset('recursos/pwa/apple-touch-icon.png') }}">
 
-    <title>Tecavi Conductor</title>
+    <title>HRControl Tecavi</title>
 
     @vite(['resources/js/pwa/main.ts'])
 </head>

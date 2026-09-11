@@ -58,8 +58,8 @@ Route::get('/manifest-conductor.webmanifest', function () {
     $base = config('pwa.base_path');
 
     return response()->json([
-        'name' => 'Tecavi Conductor',
-        'short_name' => 'Tecavi',
+        'name' => 'HRControl Tecavi',
+        'short_name' => 'HRControl',
         'description' => 'Hojas de ruta para conductores Tecavi',
         // `start_url` debe quedar DENTRO de `scope` según el algoritmo de
         // "within scope" del spec de Web App Manifest — que compara ambos
@@ -78,9 +78,9 @@ Route::get('/manifest-conductor.webmanifest', function () {
         'theme_color' => '#b51927',
         'lang' => 'es',
         'icons' => [
-            ['src' => asset('img/conductor/icon-192.png'), 'sizes' => '192x192', 'type' => 'image/png'],
-            ['src' => asset('img/conductor/icon-512.png'), 'sizes' => '512x512', 'type' => 'image/png'],
-            ['src' => asset('img/conductor/maskable-512.png'), 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'maskable'],
+            ['src' => asset('recursos/pwa/icon-192.png'), 'sizes' => '192x192', 'type' => 'image/png'],
+            ['src' => asset('recursos/pwa/icon-512.png'), 'sizes' => '512x512', 'type' => 'image/png'],
+            ['src' => asset('recursos/pwa/maskable-512.png'), 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'maskable'],
         ],
     ])->header('Content-Type', 'application/manifest+json')->header('Cache-Control', 'no-cache');
 })->name('pwa.manifest');
