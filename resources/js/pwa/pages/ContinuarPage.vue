@@ -10,7 +10,7 @@ import { api, ApiError, fechaHoraLocal, uuid } from '../lib/api';
 import { useUbicacion } from '../lib/dispositivo';
 import { errorKilometraje, referenciaKilometraje } from '../lib/kilometraje';
 import { encolarContinuar } from '../lib/sincronizar';
-import { useAuth, type Ruta } from '../stores/auth';
+import { rutaFinalizada, useAuth, type Ruta } from '../stores/auth';
 
 const router = useRouter();
 const { state, setRutaActiva } = useAuth();
@@ -93,7 +93,10 @@ async function registrar(): Promise<void> {
             `/rutas/${ruta.value.idruta}/ordenes`,
             { method: 'POST', idempotencyKey: uuid(), body: cuerpoArmado },
         );
-        setRutaActiva(res.data);
+        // Si el documento adjunto finaliza la hoja de ruta (p. ej. un recibo
+        // de combustible), ya no queda "en curso" — Home debe ofrecer
+        // "Nueva Ruta" y no "Continuar" sobre algo que ya terminó.
+        setRutaActiva(rutaFinalizada(res.data) ? null : res.data);
         limpiar();
         router.replace({ name: 'home' });
     } catch (e) {
@@ -106,7 +109,7 @@ async function registrar(): Promise<void> {
                 fhRegistro: form.value.fhRegistro,
                 finaliza: adjunto.value?.finalizara ?? false,
             });
-            setRutaActiva(local);
+            setRutaActiva(rutaFinalizada(local) ? null : local);
             limpiar();
             router.replace({ name: 'home' });
             return;

@@ -1,5 +1,5 @@
 import { ref } from 'vue';
-import { useAuth, type Orden, type Ruta } from '../stores/auth';
+import { rutaFinalizada, useAuth, type Orden, type Ruta } from '../stores/auth';
 import { api, ApiError, uuid } from './api';
 import {
     actualizar,
@@ -173,11 +173,16 @@ async function procesarUno(envio: EnvioPendiente): Promise<ResultadoEnvio> {
                     });
                 }
             }
+            // Si ya se sabía finalizada (el aviso optimista ya la había
+            // vaciado de `rutaActiva` al registrarla), esto no la aplica; y
+            // si el servidor la finalizó por su cuenta, tampoco hay que
+            // dejarla "en curso" — de cualquier modo, `rutaFinalizada()`
+            // manda.
             if (state.rutaActiva?.idruta === envio.tempId) {
-                setRutaActiva(res.data);
+                setRutaActiva(rutaFinalizada(res.data) ? null : res.data);
             }
         } else if (state.rutaActiva?.idruta === envio.idruta) {
-            setRutaActiva(res.data);
+            setRutaActiva(rutaFinalizada(res.data) ? null : res.data);
         }
 
         await eliminar(envio.id);

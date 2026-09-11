@@ -64,6 +64,19 @@ export type Ruta = {
     ordenes: Orden[];
 };
 
+/** Espejo de `Ruta::FINALIZADA` (backend). */
+const ESTADO_FINALIZADA = 'F';
+
+/**
+ * Una ruta finalizada (p. ej. por un documento adjunto que la finaliza,
+ * como un recibo de combustible) ya no tiene nada pendiente — no debe
+ * quedar como "en curso" en `state.rutaActiva`, o Home seguiría ofreciendo
+ * "Continuar" sobre algo que ya terminó.
+ */
+export function rutaFinalizada(ruta: Ruta): boolean {
+    return ruta.estado === ESTADO_FINALIZADA;
+}
+
 export type Sesion = {
     token: string;
     conductor: Conductor;
