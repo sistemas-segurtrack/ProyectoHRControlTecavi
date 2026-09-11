@@ -7,6 +7,13 @@ import { useAuth, type Sesion } from '../stores/auth';
 const router = useRouter();
 const { iniciarSesion } = useAuth();
 
+// `public/recursos/logo-segurtrack.png` no pasa por Vite (no se referencia
+// desde ningún import), así que necesita el mismo prefijo de subpath que el
+// resto de la PWA (router.ts, api.ts) en vez de una ruta absoluta fija —
+// si no, detrás de un proxy en subpath pide la imagen fuera de `/hrcontrol`
+// y el navegador la recibe 404.
+const logoUrl = `${import.meta.env.VITE_PWA_BASE_PATH ?? ''}/recursos/logo-segurtrack.png`;
+
 const codigo = ref('');
 const password = ref('');
 const cargando = ref(false);
@@ -38,7 +45,7 @@ async function entrar(): Promise<void> {
 <template>
     <div class="flex flex-1 flex-col items-center justify-center gap-10 p-6">
         <img
-            src="/recursos/logo-segurtrack.png"
+            :src="logoUrl"
             alt="Segurtrack"
             class="w-60 max-w-[75%] dark:rounded-xl dark:bg-white dark:p-3"
         />
