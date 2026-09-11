@@ -61,7 +61,16 @@ Route::get('/manifest-conductor.webmanifest', function () {
         'name' => 'Tecavi Conductor',
         'short_name' => 'Tecavi',
         'description' => 'Hojas de ruta para conductores Tecavi',
-        'start_url' => "{$base}/pwa",
+        // `start_url` debe quedar DENTRO de `scope` según el algoritmo de
+        // "within scope" del spec de Web App Manifest — que compara ambos
+        // como strings, así que necesitan la misma barra final. Sin la barra
+        // acá, Chrome ignora por completo el `scope` declarado ("property
+        // 'scope' ignored. Start url should be within scope of scope URL.",
+        // visible en chrome://inspect o vía CDP Page.getAppManifest) y cae a
+        // calcular el scope efectivo como el directorio padre de start_url —
+        // en este caso `/hrcontrol/` en vez de `/hrcontrol/pwa/`, mucho más
+        // amplio de lo que corresponde (incluiría el panel admin).
+        'start_url' => "{$base}/pwa/",
         'scope' => "{$base}/pwa/",
         'display' => 'standalone',
         'orientation' => 'portrait',
