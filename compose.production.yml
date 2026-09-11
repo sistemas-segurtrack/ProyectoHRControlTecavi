@@ -1,0 +1,74 @@
+# Build args que necesitan las etapas `app` y `web` (ambas compilan su propia
+# copia de public/build): VITE_* se hornea dentro del JavaScript.
+x-vite: &vite
+  VITE_APP_NAME: ${VITE_APP_NAME:-Proyecto Tecavi - HRControl}
+  VITE_PWA_BASE_PATH: ${PWA_BASE_PATH:-}
+
+services:
+  app:
+    # La única imagen PHP: la cola y el scheduler son este mismo contenedor
+    # con otro comando y la reutilizan por esta etiqueta.
+    image: hrcontrol-php
+    build:
+      context: .
+      target: app
+      args: *vite
+    env_file:
+      - .env
+    volumes:
+      - /var/opt/proyectos/segurtrack/tecavi/HRControl/storage:/var/www/html/storage:z
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      target: web
+      args: *vite
+    ports:
+      - "127.0.0.1:${APP_PORT:-8090}:80"
+    depends_on:
+      - app
+    restart: unless-stopped
+
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - /var/opt/proyectos/segurtrack/tecavi/HRControl/mysql:/var/lib/mysql:Z
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u${DB_USERNAME}", "-p${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  queue:
+    image: hrcontrol-php
+    env_file:
+      - .env
+    command: ["bash", "bin/queue-worker.sh", "default", "database"]
+    volumes:
+      - /var/opt/proyectos/segurtrack/tecavi/HRControl/storage:/var/www/html/storage:z
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  scheduler:
+    image: hrcontrol-php
+    env_file:
+      - .env
+    command: ["bash", "bin/scheduler.sh"]
+    volumes:
+      - /var/opt/proyectos/segurtrack/tecavi/HRControl/storage:/var/www/html/storage:z
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped

@@ -1,0 +1,53 @@
+# Lo que NO se copia al contexto de construcción.
+#
+# Cuanto menos entre aquí, más rápido construye y menos pesa la imagen. Y sobre
+# todo: nada de secretos. El .env de producción se inyecta al arrancar el
+# contenedor, nunca se hornea dentro de la imagen.
+
+.env
+.env.*
+
+.git
+.gitattributes
+.gitignore
+.github
+
+# Entorno de desarrollo: no pinta nada en producción.
+.ddev
+contexto
+
+# Se instalan y se generan dentro de la construcción.
+node_modules
+vendor
+public/build
+public/hot
+public/storage
+
+# Pruebas y herramientas de desarrollo.
+tests
+phpunit.xml
+pint.json
+.phpunit.cache
+.phpunit.result.cache
+
+# Estado local que el contenedor recrea en su volumen.
+storage/app/public/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/logs/*
+bootstrap/cache/*
+
+# Editores y sistema operativo.
+.vscode
+.idea
+.zed
+.fleet
+.nova
+.claude
+.DS_Store
+Thumbs.db
+
+*.md
+*.sql
+*.sql.gz

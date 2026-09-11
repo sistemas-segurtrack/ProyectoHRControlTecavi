@@ -1,0 +1,15 @@
+{
+    "mcpServers": {
+        "laravel-boost": {
+            "command": "wsl.exe",
+            "args": [
+                "-d",
+                "DDEV",
+                "-e",
+                "bash",
+                "-lc",
+                "cd /home/desarrolladorstk/dev/segurtrack/tecavi/HRControl && ddev artisan boost:mcp"
+            ]
+        }
+    }
+}

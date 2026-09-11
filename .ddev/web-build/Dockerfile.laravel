@@ -1,0 +1,3 @@
+ARG COMPOSER_HOME=/usr/local/composer
+RUN composer global require laravel/installer
+RUN ln -s $COMPOSER_HOME/vendor/bin/laravel /usr/local/bin/laravel

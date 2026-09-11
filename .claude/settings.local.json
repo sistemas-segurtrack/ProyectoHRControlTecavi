@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//wsl.localhost/DDEV/home/desarrolladorstk/dev/segurtrack/tecavi/**)",
+      "Bash(ddev --version)",
+      "Bash(php --version)",
+      "Bash(cd \"\\\\\\\\wsl.localhost\\\\DDEV\\\\home\\\\desarrolladorstk\\\\dev\\\\segurtrack\\\\tecavi\\\\HRControl\")",
+      "Bash(php artisan *)",
+      "Bash(wsl.exe -l -v)",
+      "Bash(wsl.exe -d DDEV -e bash -lc \"which ddev && ddev --version\")",
+      "Bash(wsl.exe *)",
+      "mcp__laravel-boost__database-schema",
+      "mcp__laravel-boost__database-query",
+      "Bash(rm -rf \"resources/js/pages/Frontend \")",
+      "Bash(mkdir -p resources/js/pages/Frontend/Modulos/Rutas resources/js/pages/Frontend/Modulos/Contactos)",
+      "Bash(grep -oE \"devtools[A-Za-z]*|_inertia/devtools[a-z/]*|Devtools[A-Za-z]*|open.{0,3}devtools\" node_modules/@inertiajs/core/dist/index.js)",
+      "Bash(wsl.exe -d DDEV -e bash -lc \"cd /home/desarrolladorstk/dev/segurtrack/tecavi/HRControl && ddev exec 'npx --yes playwright@latest --version' 2>&1 | tail -3; echo '--- host chrome ---'\"; ls \"/c/Program Files/Google/Chrome/Application/chrome.exe\" \"/c/Program Files \\(x86\\)/Google/Chrome/Application/chrome.exe\" 2>/dev/null; powershell.exe -NoProfile -Command \"\\(Get-Command chrome -ErrorAction SilentlyContinue\\).Source; \\(Get-ItemProperty 'HKLM:\\\\SOFTWARE\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\App Paths\\\\chrome.exe' -ErrorAction SilentlyContinue\\).'\\(default\\)'\" 2>/dev/null)",
+      "Bash(cd *)",
+      "Bash(awk 'NR>=1899' contexto/plan-pwa/consumo.md)",
+      "Bash(grep -vE '^\\\\s*\\\\}?,?\\\\s*$')"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "laravel-boost"
+  ]
+}
