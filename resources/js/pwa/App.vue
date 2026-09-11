@@ -2,17 +2,26 @@
 import { onMounted, ref } from 'vue';
 import { RouterView } from 'vue-router';
 import { iniciarUbicacion, precargarCamara } from './lib/dispositivo';
+import { usePendientes } from './lib/outbox';
+import { procesarCola, sincronizando } from './lib/sincronizar';
 
 const offline = ref(!navigator.onLine);
+const { pendientes: cola } = usePendientes();
 
 onMounted(() => {
-    window.addEventListener('online', () => (offline.value = false));
+    window.addEventListener('online', () => {
+        offline.value = false;
+        void procesarCola();
+    });
     window.addEventListener('offline', () => (offline.value = true));
 
     // Permisos que la app necesita para registrar avances: ubicación (se usa
     // automáticamente) y cámara (para la foto del documento).
     iniciarUbicacion();
     void precargarCamara();
+
+    // Por si quedó algo sin enviar de una sesión anterior.
+    void procesarCola();
 });
 </script>
 
@@ -25,6 +34,26 @@ onMounted(() => {
             class="bg-amber-500 px-4 py-1.5 text-center text-xs font-semibold text-white"
         >
             Sin conexión — los cambios se guardarán y enviarán al reconectar
+        </div>
+        <div
+            v-else-if="cola.pendientes > 0"
+            class="flex items-center justify-center gap-2 bg-blue-500 px-4 py-1.5 text-center text-xs font-semibold text-white"
+        >
+            <span>
+                {{
+                    sincronizando
+                        ? 'Enviando cambios pendientes…'
+                        : `${cola.pendientes} cambio(s) sin enviar`
+                }}
+            </span>
+            <button
+                v-if="!sincronizando"
+                type="button"
+                class="underline underline-offset-2"
+                @click="procesarCola"
+            >
+                Reintentar ahora
+            </button>
         </div>
 
         <RouterView v-slot="{ Component }">

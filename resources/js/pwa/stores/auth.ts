@@ -95,6 +95,11 @@ try {
             ...CATALOGOS_VACIOS,
             ...guardado.catalogos,
         };
+        // La ruta activa también se persiste: si la app se cierra sin señal
+        // (por ejemplo con una hoja armada sin conexión, todavía en la cola
+        // de envío), al reabrirla debe seguir viéndose hasta que se logre
+        // sincronizar — no solo mientras el proceso de JS siga vivo.
+        state.rutaActiva = guardado.rutaActiva ?? null;
     }
 } catch {
     /* almacenamiento no disponible */
@@ -108,6 +113,7 @@ function persistir(): void {
                 token: state.token,
                 conductor: state.conductor,
                 catalogos: state.catalogos,
+                rutaActiva: state.rutaActiva,
             }),
         );
     } catch {
@@ -130,6 +136,7 @@ const setCatalogos = (c: Catalogos): void => {
 
 const setRutaActiva = (r: Ruta | null): void => {
     state.rutaActiva = r;
+    persistir();
 };
 
 const cerrarSesion = (): void => {

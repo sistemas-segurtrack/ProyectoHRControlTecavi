@@ -8,6 +8,7 @@ import CampoTexto from '../components/CampoTexto.vue';
 import EstadoUbicacion from '../components/EstadoUbicacion.vue';
 import { api, ApiError, fechaHoraLocal, uuid } from '../lib/api';
 import { useUbicacion } from '../lib/dispositivo';
+import { encolarContinuar } from '../lib/sincronizar';
 import { useAuth, type Ruta } from '../stores/auth';
 
 const router = useRouter();
@@ -70,15 +71,30 @@ async function registrar(): Promise<void> {
     }
     error.value = '';
     cargando.value = true;
+    const cuerpoArmado = cuerpo();
     try {
         const res = await api<{ data: Ruta }>(
             `/rutas/${ruta.value.idruta}/ordenes`,
-            { method: 'POST', idempotencyKey: uuid(), body: cuerpo() },
+            { method: 'POST', idempotencyKey: uuid(), body: cuerpoArmado },
         );
         setRutaActiva(res.data);
         limpiar();
         router.replace({ name: 'home' });
     } catch (e) {
+        if (e instanceof ApiError && e.status === 0) {
+            // Sin señal: se registra localmente y se manda cuando vuelva.
+            const local = await encolarContinuar(cuerpoArmado, ruta.value, {
+                geocerca: form.value.geocerca.trim() || null,
+                coordenada: ubicacion.coordenada,
+                kilometraje: form.value.kilometraje.trim() || null,
+                fhRegistro: form.value.fhRegistro,
+                finaliza: adjunto.value?.finalizara ?? false,
+            });
+            setRutaActiva(local);
+            limpiar();
+            router.replace({ name: 'home' });
+            return;
+        }
         error.value =
             e instanceof ApiError ? e.message : 'No se pudo registrar.';
     } finally {

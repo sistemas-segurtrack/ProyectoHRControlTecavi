@@ -8,6 +8,7 @@ import CampoTexto from '../components/CampoTexto.vue';
 import EstadoUbicacion from '../components/EstadoUbicacion.vue';
 import { api, ApiError, fechaHoraLocal, uuid } from '../lib/api';
 import { useUbicacion } from '../lib/dispositivo';
+import { encolarCrearRuta } from '../lib/sincronizar';
 import { useAuth, type Ruta } from '../stores/auth';
 
 const router = useRouter();
@@ -60,15 +61,34 @@ async function iniciar(): Promise<void> {
     }
     error.value = '';
     cargando.value = true;
+    const cuerpoArmado = cuerpo();
     try {
         const res = await api<{ data: Ruta }>('/rutas', {
             method: 'POST',
             idempotencyKey,
-            body: cuerpo(),
+            body: cuerpoArmado,
         });
         setRutaActiva(res.data);
         router.replace({ name: 'home' });
     } catch (e) {
+        if (e instanceof ApiError && e.status === 0) {
+            // Sin señal: se arma localmente y se manda cuando vuelva.
+            const local = await encolarCrearRuta(cuerpoArmado, {
+                placa: form.value.placa.trim(),
+                piloto: state.conductor?.nombre ?? '',
+                copiloto: form.value.copiloto.trim() || null,
+                precintos: form.value.precintos.trim() || null,
+                carreta: form.value.carreta.trim() || null,
+                geocerca: form.value.geocerca.trim() || null,
+                coordenada: ubicacion.coordenada,
+                kilometraje: form.value.kilometraje.trim() || null,
+                fhRegistro: form.value.fhRegistro,
+                finaliza: adjunto.value?.finalizara ?? false,
+            });
+            setRutaActiva(local);
+            router.replace({ name: 'home' });
+            return;
+        }
         error.value =
             e instanceof ApiError ? e.message : 'No se pudo crear la ruta.';
     } finally {
