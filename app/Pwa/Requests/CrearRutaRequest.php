@@ -24,6 +24,7 @@ class CrearRutaRequest extends FormRequest implements ConDocumentoAdjunto
             'kilometraje' => ['nullable', 'string', 'max:10'],
             'geocerca' => ['nullable', 'string', 'max:200'],
             'coordenada' => ['nullable', 'string', 'max:50'],
+            'fhRegistro' => ['nullable', 'date'],
             'observacion' => ['nullable', 'string', 'max:500'],
             ...$this->reglasDocumento(),
         ];

@@ -81,7 +81,7 @@ class RutaController extends Controller
                 'kilometraje' => $datos['kilometraje'] ?? null,
                 'observacion' => $datos['observacion'] ?? null,
                 'orden' => 1,
-                'fhRegistro' => now(),
+                'fhRegistro' => $datos['fhRegistro'] ?? now(),
                 'fhIndicado' => now(),
                 'estado' => $finaliza ? DetalleRuta::FINALIZADO : null,
             ]);
@@ -139,7 +139,7 @@ class RutaController extends Controller
                 'kilometraje' => $datos['kilometraje'] ?? null,
                 'observacion' => $datos['observacion'] ?? null,
                 'orden' => $siguienteOrden,
-                'fhRegistro' => now(),
+                'fhRegistro' => $datos['fhRegistro'] ?? now(),
                 'fhIndicado' => now(),
                 // Un documento con condicionaFin cierra la hoja: el orden nace FINALIZADO.
                 'estado' => $finaliza ? DetalleRuta::FINALIZADO : null,

@@ -6,7 +6,7 @@ import AdjuntarDocumento from '../components/AdjuntarDocumento.vue';
 import CampoCombo from '../components/CampoCombo.vue';
 import CampoTexto from '../components/CampoTexto.vue';
 import EstadoUbicacion from '../components/EstadoUbicacion.vue';
-import { api, ApiError, uuid } from '../lib/api';
+import { api, ApiError, fechaHoraLocal, uuid } from '../lib/api';
 import { useUbicacion } from '../lib/dispositivo';
 import { useAuth, type Ruta } from '../stores/auth';
 
@@ -24,6 +24,7 @@ const ruta = computed(() => state.rutaActiva);
 
 const form = ref({
     geocerca: '',
+    fhRegistro: fechaHoraLocal(),
     kilometraje: '',
     observacion: '',
 });
@@ -32,7 +33,12 @@ const cargando = ref(false);
 const error = ref('');
 
 function limpiar(): void {
-    form.value = { geocerca: '', kilometraje: '', observacion: '' };
+    form.value = {
+        geocerca: '',
+        fhRegistro: fechaHoraLocal(),
+        kilometraje: '',
+        observacion: '',
+    };
     adjunto.value?.reset();
 }
 
@@ -41,6 +47,7 @@ function cuerpo(): FormData | Record<string, string | null> {
         geocerca: form.value.geocerca.trim() || null,
         // Coordenada automática de la ubicación del dispositivo.
         coordenada: ubicacion.coordenada,
+        fhRegistro: form.value.fhRegistro || null,
         kilometraje: form.value.kilometraje.trim() || null,
         observacion: form.value.observacion.trim() || null,
     };
@@ -140,6 +147,12 @@ async function registrar(): Promise<void> {
                 placeholder="Dónde estás"
             />
 
+            <CampoTexto
+                v-model="form.fhRegistro"
+                label="Fecha y hora"
+                type="datetime-local"
+                required
+            />
             <CampoTexto
                 v-model="form.kilometraje"
                 label="Kilometraje"

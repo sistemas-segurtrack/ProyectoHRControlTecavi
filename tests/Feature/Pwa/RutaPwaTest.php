@@ -38,6 +38,44 @@ test('crear ruta genera hoja T###### con el conductor como piloto y orden 1 EN R
     expect(PwaRuta::where('wialon_conductor_id', $c->id)->where('ruta_idruta', 'T000001')->exists())->toBeTrue();
 });
 
+test('crear ruta respeta el fhRegistro enviado por el conductor', function () {
+    Sanctum::actingAs(conductorPwa(), ['*']);
+
+    $this->postJson('/api/pwa/rutas', [
+        'placa' => 'AAA-111',
+        'fhRegistro' => '2026-01-15T08:30',
+    ])
+        ->assertCreated()
+        ->assertJsonPath(
+            'data.ordenes.0.fh_registro',
+            fn ($valor) => str_starts_with((string) $valor, '2026-01-15T08:30'),
+        );
+});
+
+test('crear ruta sin fhRegistro cae en la hora actual', function () {
+    Sanctum::actingAs(conductorPwa(), ['*']);
+
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111'])->assertCreated();
+
+    $detalle = DetalleRuta::first();
+    expect($detalle->fhRegistro->diffInSeconds(now()))->toBeLessThan(5);
+});
+
+test('registrar orden respeta el fhRegistro enviado por el conductor', function () {
+    Sanctum::actingAs(conductorPwa(), ['*']);
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111'])->json('data.idruta');
+
+    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", [
+        'geocerca' => 'PLANTA SUR',
+        'fhRegistro' => '2026-01-16T14:00',
+    ])
+        ->assertCreated()
+        ->assertJsonPath(
+            'data.ordenes.1.fh_registro',
+            fn ($valor) => str_starts_with((string) $valor, '2026-01-16T14:00'),
+        );
+});
+
 test('no deja crear una segunda ruta si ya hay una en curso', function () {
     Sanctum::actingAs(conductorPwa(), ['*']);
 

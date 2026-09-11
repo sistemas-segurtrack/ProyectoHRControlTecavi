@@ -6,7 +6,7 @@ import AdjuntarDocumento from '../components/AdjuntarDocumento.vue';
 import CampoCombo from '../components/CampoCombo.vue';
 import CampoTexto from '../components/CampoTexto.vue';
 import EstadoUbicacion from '../components/EstadoUbicacion.vue';
-import { api, ApiError, uuid } from '../lib/api';
+import { api, ApiError, fechaHoraLocal, uuid } from '../lib/api';
 import { useUbicacion } from '../lib/dispositivo';
 import { useAuth, type Ruta } from '../stores/auth';
 
@@ -21,6 +21,7 @@ const form = ref({
     carreta: '',
     geocerca: '',
     observacion: '',
+    fhRegistro: fechaHoraLocal(),
     kilometraje: '',
 });
 const adjunto = useTemplateRef('adjunto');
@@ -38,6 +39,7 @@ function cuerpo(): FormData | Record<string, string | null> {
         // La coordenada se toma automáticamente de la ubicación del dispositivo.
         coordenada: ubicacion.coordenada,
         observacion: form.value.observacion.trim() || null,
+        fhRegistro: form.value.fhRegistro || null,
         kilometraje: form.value.kilometraje.trim() || null,
     };
 
@@ -129,6 +131,12 @@ async function iniciar(): Promise<void> {
 
             <AdjuntarDocumento ref="adjunto" />
 
+            <CampoTexto
+                v-model="form.fhRegistro"
+                label="Fecha y hora"
+                type="datetime-local"
+                required
+            />
             <CampoTexto
                 v-model="form.kilometraje"
                 label="Kilometraje inicial"

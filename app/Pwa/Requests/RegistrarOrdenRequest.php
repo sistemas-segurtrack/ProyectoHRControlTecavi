@@ -20,6 +20,7 @@ class RegistrarOrdenRequest extends FormRequest implements ConDocumentoAdjunto
             'contacto_idcontacto' => ['nullable', 'integer', 'exists:contacto,idcontacto'],
             'geocerca' => ['nullable', 'string', 'max:200'],
             'coordenada' => ['nullable', 'string', 'max:50'],
+            'fhRegistro' => ['nullable', 'date'],
             'kilometraje' => ['nullable', 'string', 'max:10'],
             'observacion' => ['nullable', 'string', 'max:500'],
             ...$this->reglasDocumento(),

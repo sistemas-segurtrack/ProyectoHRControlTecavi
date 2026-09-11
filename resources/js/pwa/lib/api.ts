@@ -79,3 +79,14 @@ export function uuid(): string {
     }
     return `${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`;
 }
+
+/**
+ * Fecha y hora actual en el formato que espera un `<input type="datetime-local">`
+ * (`YYYY-MM-DDTHH:mm`), en la hora LOCAL del dispositivo — no UTC, que es lo
+ * que da `toISOString()` y correría la hora mostrada.
+ */
+export function fechaHoraLocal(): string {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
