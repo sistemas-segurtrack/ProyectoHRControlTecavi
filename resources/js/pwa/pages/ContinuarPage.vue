@@ -8,6 +8,7 @@ import CampoTexto from '../components/CampoTexto.vue';
 import EstadoUbicacion from '../components/EstadoUbicacion.vue';
 import { api, ApiError, fechaHoraLocal, uuid } from '../lib/api';
 import { useUbicacion } from '../lib/dispositivo';
+import { errorKilometraje, referenciaKilometraje } from '../lib/kilometraje';
 import { encolarContinuar } from '../lib/sincronizar';
 import { useAuth, type Ruta } from '../stores/auth';
 
@@ -32,6 +33,17 @@ const form = ref({
 const adjunto = useTemplateRef('adjunto');
 const cargando = ref(false);
 const error = ref('');
+
+const referenciaKm = computed(() =>
+    referenciaKilometraje(
+        state.catalogos,
+        ruta.value?.placa ?? null,
+        ruta.value?.ordenes ?? [],
+    ),
+);
+const errorKm = computed(() =>
+    errorKilometraje(form.value.kilometraje, referenciaKm.value),
+);
 
 function limpiar(): void {
     form.value = {
@@ -70,6 +82,9 @@ async function registrar(): Promise<void> {
             'Completa el tipo, el código y la foto del documento adjunto.';
         return;
     }
+    // El aviso ya está visible junto al campo (se actualiza al instante
+    // mientras se escribe) — no hace falta duplicarlo en el banner general.
+    if (errorKm.value) return;
     error.value = '';
     cargando.value = true;
     const cuerpoArmado = cuerpo();
@@ -170,12 +185,20 @@ async function registrar(): Promise<void> {
                 type="datetime-local"
                 required
             />
-            <CampoTexto
-                v-model="form.kilometraje"
-                label="Kilometraje"
-                inputmode="numeric"
-                placeholder="Km del odómetro"
-            />
+            <div class="flex flex-col gap-1">
+                <CampoTexto
+                    v-model="form.kilometraje"
+                    label="Kilometraje"
+                    inputmode="numeric"
+                    placeholder="Km del odómetro"
+                />
+                <p
+                    v-if="errorKm"
+                    class="text-xs text-rose-600 dark:text-rose-400"
+                >
+                    {{ errorKm }}
+                </p>
+            </div>
             <CampoTexto
                 v-model="form.observacion"
                 label="Observación"
@@ -195,7 +218,7 @@ async function registrar(): Promise<void> {
 
             <button
                 type="submit"
-                :disabled="cargando"
+                :disabled="cargando || !!errorKm"
                 class="mt-auto h-14 w-full rounded-xl bg-[#b51927] text-lg font-bold text-white transition active:scale-[.98] disabled:opacity-60"
             >
                 {{ cargando ? 'Registrando…' : 'Registrar avance' }}

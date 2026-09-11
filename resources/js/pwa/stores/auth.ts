@@ -19,6 +19,9 @@ export type TipoDocumento = {
 
 export type Catalogos = {
     placas: string[];
+    // Contador de Wialon por placa, para validar el kilometraje al instante
+    // (ver `resources/js/pwa/lib/kilometraje.ts`).
+    kilometrajes: Record<string, number>;
     carretas: string[];
     geocercas: string[];
     copilotos: string[];
@@ -72,6 +75,7 @@ const LS = 'pwa_conductor';
 
 const CATALOGOS_VACIOS: Catalogos = {
     placas: [],
+    kilometrajes: {},
     carretas: [],
     geocercas: [],
     copilotos: [],

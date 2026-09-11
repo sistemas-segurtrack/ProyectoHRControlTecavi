@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ChevronLeft } from '@lucide/vue';
-import { ref, useTemplateRef } from 'vue';
+import { computed, ref, useTemplateRef } from 'vue';
 import { useRouter } from 'vue-router';
 import AdjuntarDocumento from '../components/AdjuntarDocumento.vue';
 import CampoCombo from '../components/CampoCombo.vue';
@@ -8,6 +8,7 @@ import CampoTexto from '../components/CampoTexto.vue';
 import EstadoUbicacion from '../components/EstadoUbicacion.vue';
 import { api, ApiError, fechaHoraLocal, uuid } from '../lib/api';
 import { useUbicacion } from '../lib/dispositivo';
+import { errorKilometraje, referenciaKilometraje } from '../lib/kilometraje';
 import { encolarCrearRuta } from '../lib/sincronizar';
 import { useAuth, type Ruta } from '../stores/auth';
 
@@ -29,6 +30,13 @@ const adjunto = useTemplateRef('adjunto');
 const cargando = ref(false);
 const error = ref('');
 const idempotencyKey = uuid();
+
+const referenciaKm = computed(() =>
+    referenciaKilometraje(state.catalogos, form.value.placa || null),
+);
+const errorKm = computed(() =>
+    errorKilometraje(form.value.kilometraje, referenciaKm.value),
+);
 
 function cuerpo(): FormData | Record<string, string | null> {
     const base = {
@@ -60,6 +68,9 @@ async function iniciar(): Promise<void> {
             'Completa el tipo, el código y la foto del documento adjunto.';
         return;
     }
+    // El aviso ya está visible junto al campo (se actualiza al instante
+    // mientras se escribe) — no hace falta duplicarlo en el banner general.
+    if (errorKm.value) return;
     error.value = '';
     cargando.value = true;
     const cuerpoArmado = cuerpo();
@@ -158,12 +169,20 @@ async function iniciar(): Promise<void> {
                 type="datetime-local"
                 required
             />
-            <CampoTexto
-                v-model="form.kilometraje"
-                label="Kilometraje inicial"
-                inputmode="numeric"
-                placeholder="Km del odómetro"
-            />
+            <div class="flex flex-col gap-1">
+                <CampoTexto
+                    v-model="form.kilometraje"
+                    label="Kilometraje inicial"
+                    inputmode="numeric"
+                    placeholder="Km del odómetro"
+                />
+                <p
+                    v-if="errorKm"
+                    class="text-xs text-rose-600 dark:text-rose-400"
+                >
+                    {{ errorKm }}
+                </p>
+            </div>
 
             <EstadoUbicacion />
 
@@ -180,7 +199,7 @@ async function iniciar(): Promise<void> {
                 </p>
                 <button
                     type="submit"
-                    :disabled="cargando"
+                    :disabled="cargando || !!errorKm"
                     class="h-14 w-full rounded-xl bg-[#b51927] text-lg font-bold text-white transition active:scale-[.98] disabled:opacity-60"
                 >
                     {{ cargando ? 'Iniciando…' : 'Iniciar ruta' }}

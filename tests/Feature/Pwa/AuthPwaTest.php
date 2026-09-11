@@ -8,7 +8,7 @@ use Laravel\Sanctum\Sanctum;
 test('login válido devuelve token, conductor y catálogos', function () {
     $c = conductorPwa('9A000042', '123456');
     conductorPwa('9A000099', 'x'); // otro → aparece como copiloto
-    WialonUnidad::create(['wialon_unidad_id' => 1, 'placa' => 'TEI838']);
+    WialonUnidad::create(['wialon_unidad_id' => 1, 'placa' => 'TEI838', 'contador_kilometraje_km' => 12345]);
     WialonCarreta::create(['wialon_carreta_id' => 1, 'recurso' => 'TECAVI', 'nombre' => 'ATT888']);
     WialonGeocerca::create(['wialon_geocerca_id' => 1, 'recurso' => 'TECAVI', 'nombre' => 'PLANTA LIMA']);
 
@@ -18,6 +18,7 @@ test('login válido devuelve token, conductor y catálogos', function () {
         ->assertJsonPath('conductor.nombre', 'CONDUCTOR 9A000042')
         ->assertJsonPath('ruta_activa', null)
         ->assertJsonPath('catalogos.placas', ['TEI838'])
+        ->assertJsonPath('catalogos.kilometrajes.TEI838', 12345)
         ->assertJsonPath('catalogos.carretas', ['ATT888'])
         ->assertJsonPath('catalogos.geocercas', ['PLANTA LIMA'])
         ->assertJsonPath('catalogos.copilotos', ['CONDUCTOR 9A000099'])

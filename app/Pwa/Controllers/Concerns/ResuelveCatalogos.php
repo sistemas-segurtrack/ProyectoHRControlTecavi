@@ -24,6 +24,13 @@ trait ResuelveCatalogos
             'placas' => WialonUnidad::query()
                 ->whereNotNull('placa')->where('placa', '!=', '')
                 ->orderBy('placa')->pluck('placa')->values(),
+            // Contador de Wialon por placa (mismo que usa `ValidaKilometraje`
+            // en el servidor): la PWA lo cachea para poder avisar al
+            // instante, sin señal, que un kilometraje no puede retroceder.
+            'kilometrajes' => WialonUnidad::query()
+                ->whereNotNull('placa')->where('placa', '!=', '')
+                ->whereNotNull('contador_kilometraje_km')
+                ->pluck('contador_kilometraje_km', 'placa'),
             'carretas' => WialonCarreta::query()->orderBy('nombre')->pluck('nombre')->unique()->values(),
             'geocercas' => WialonGeocerca::query()->orderBy('nombre')->pluck('nombre')->unique()->values(),
             'copilotos' => WialonConductor::query()
