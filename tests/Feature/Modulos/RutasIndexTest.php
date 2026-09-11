@@ -258,12 +258,16 @@ test('el export XLSX de una sola hoja arma el formulario con cabecera, itinerari
         ->and($hoja->getCell('B5')->getValue())->toBe('FRM-001')
         ->and($hoja->getCell('F5')->getValue())->toBe('CARR-01')
         // Cabecera del itinerario en la fila 7 (encabezado: filas 1-5, fila 6 en blanco).
+        // Orden: todo lo "inicial" primero, luego todo lo "final".
         ->and($hoja->getCell('A7')->getValue())->toBe('Conductor')
         ->and($hoja->getCell('B7')->getValue())->toBe('Geocerca Inicial')
+        ->and($hoja->getCell('E7')->getValue())->toBe('Km Inicial')
+        ->and($hoja->getCell('G7')->getValue())->toBe('Geocerca Final')
+        ->and($hoja->getCell('M7')->getValue())->toBe('Km Final')
         // Itinerario en orden (parada 1 primero).
         ->and($hoja->getCell('B8')->getValue())->toBe('PLANTA A')
-        ->and($hoja->getCell('C8')->getValue())->toBe('PLANTA B')
-        ->and((string) $hoja->getCell('L8')->getValue())->toBe('100')
+        ->and($hoja->getCell('G8')->getValue())->toBe('PLANTA B')
+        ->and((string) $hoja->getCell('E8')->getValue())->toBe('100')
         ->and((string) $hoja->getCell('M8')->getValue())->toBe('250');
 
     // "DOCUMENTOS ADJUNTOS" y su tabla, en algún lado más abajo.

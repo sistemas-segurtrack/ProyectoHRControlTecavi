@@ -856,9 +856,8 @@ watch(
                                 <th
                                     class="sticky left-0 z-20 bg-gray-50 px-2.5 py-2 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)] dark:bg-gray-800"
                                 >
-                                    ID Hoja de Ruta
+                                    Conductor
                                 </th>
-                                <th class="px-2.5 py-2">Conductor</th>
                                 <th class="px-2.5 py-2">Copiloto</th>
                                 <th class="px-2.5 py-2">Placa</th>
                                 <th class="px-2.5 py-2">Carreta</th>
@@ -889,11 +888,10 @@ watch(
                                 class="text-gray-700 dark:text-gray-200 [&>td]:px-2.5 [&>td]:py-2"
                             >
                                 <td
-                                    class="sticky left-0 z-20 bg-white font-mono font-semibold text-[#b51927] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)] dark:bg-gray-900"
+                                    class="sticky left-0 z-20 bg-white font-semibold shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)] dark:bg-gray-900"
                                 >
-                                    {{ seleccionada.hoja ?? '-' }}
+                                    {{ seleccionada.conductor ?? '-' }}
                                 </td>
-                                <td>{{ seleccionada.conductor ?? '-' }}</td>
                                 <td>{{ seleccionada.copiloto ?? '-' }}</td>
                                 <td>{{ seleccionada.placa ?? '-' }}</td>
                                 <td>{{ seleccionada.carreta ?? '-' }}</td>
