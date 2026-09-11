@@ -178,4 +178,13 @@ FROM nginx:1.27-alpine AS web
 COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/public /var/www/html/public
 
+# `public/storage` es un symlink a `storage/app/public` — ahí caen las fotos
+# de documentos que sube la PWA. `php artisan storage:link` lo crea en el
+# contenedor `app`, pero ese symlink vive en SU público (una copia propia,
+# horneada en la imagen), no en este. Sin este symlink acá, nginx nunca
+# encuentra el archivo y cualquier foto responde 404 aunque exista en el
+# volumen — hay que crearlo también aquí, apuntando al mismo volumen de
+# `storage` que monta compose.production.yml para este servicio.
+RUN ln -s /var/www/html/storage/app/public /var/www/html/public/storage
+
 EXPOSE 80

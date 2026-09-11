@@ -33,6 +33,12 @@ services:
             args: *vite
         ports:
             - '127.0.0.1:${APP_PORT:-8090}:80'
+        # Mismo volumen que `app`, de solo lectura: nginx sirve las fotos de
+        # documentos (`/storage/...`) directo desde disco, sin pasar por
+        # PHP-FPM — sin este volumen, el symlink `public/storage` de la
+        # imagen (ver Dockerfile) apunta a un directorio vacío y todo 404.
+        volumes:
+            - /var/opt/proyectos/segurtrack/tecavi/HRControl/storage:/var/www/html/storage:ro,z
         depends_on:
             - app
         restart: unless-stopped
