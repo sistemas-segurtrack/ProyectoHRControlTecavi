@@ -72,3 +72,17 @@ export async function precargarCamara(): Promise<void> {
 export function useUbicacion() {
     return { ubicacion: readonly(estado) };
 }
+
+/**
+ * `true` cuando la app corre abierta desde el ícono instalado (modo
+ * standalone), no en una pestaña normal del navegador. `display-mode` es el
+ * estándar; `navigator.standalone` es el equivalente viejo de iOS Safari, que
+ * no soporta `display-mode` en `matchMedia`.
+ */
+export function corriendoInstalada(): boolean {
+    if (window.matchMedia?.('(display-mode: standalone)').matches) {
+        return true;
+    }
+
+    return (navigator as { standalone?: boolean }).standalone === true;
+}
