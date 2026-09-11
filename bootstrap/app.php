@@ -22,6 +22,10 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Detrás de Apache/nginx (mismo host, red interna de Docker): confiar
+        // en los X-Forwarded-* que reenvía el proxy para IP real / esquema.
+        $middleware->trustProxies(at: '*');
+
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
         $middleware->web(append: [
