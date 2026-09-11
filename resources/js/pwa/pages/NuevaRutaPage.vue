@@ -56,7 +56,8 @@ function cuerpo(): FormData | Record<string, string | null> {
 
 async function iniciar(): Promise<void> {
     if (adjunto.value && !adjunto.value.listo) {
-        error.value = 'Elige el tipo de documento.';
+        error.value =
+            'Completa el tipo, el código y la foto del documento adjunto.';
         return;
     }
     error.value = '';

@@ -22,7 +22,8 @@ trait ValidaDocumentoAdjunto
             'adjuntar' => ['nullable', 'boolean'],
             'documento' => ['nullable', 'array'],
             'documento.tipo_documento_id' => ['required_if:adjuntar,true,1', 'nullable', 'integer', 'exists:tipodocumento,idtipoDocumento'],
-            'documento.documento' => ['nullable', 'string', 'max:50'],
+            // Código del documento y foto son obligatorios en cuanto se activa "Adjuntar".
+            'documento.documento' => ['required_if:adjuntar,true,1', 'nullable', 'string', 'max:50'],
             'documento.producto' => ['nullable', 'string', 'max:50'],
             // Campos numéricos (opcionales).
             'documento.cantidad' => ['nullable', 'numeric'],
@@ -30,7 +31,7 @@ trait ValidaDocumentoAdjunto
             'documento.peso_neto' => ['nullable', 'numeric'],
             'documento.peso_bruto' => ['nullable', 'numeric'],
             // Foto del documento tomada con la cámara (o imagen de la galería).
-            'documento.imagen' => ['nullable', 'file', 'max:307200', 'mimes:jpg,jpeg,png,webp'],
+            'documento.imagen' => ['required_if:adjuntar,true,1', 'nullable', 'file', 'max:307200', 'mimes:jpg,jpeg,png,webp'],
         ];
     }
 

@@ -51,9 +51,14 @@ const tipoElegido = computed(() =>
     ),
 );
 
-/** El formulario está completo (o el switch está apagado). */
+/** El formulario está completo (o el switch está apagado): con "Adjuntar"
+ *  activo, el tipo, el código del documento y la foto son obligatorios. */
 const listo = computed(
-    () => !activo.value || campos.value.tipo_documento_id !== '',
+    () =>
+        !activo.value ||
+        (campos.value.tipo_documento_id !== '' &&
+            campos.value.documento.trim() !== '' &&
+            archivo.value !== null),
 );
 
 /** Al registrar, este documento finalizará la hoja de ruta. */
@@ -221,8 +226,9 @@ defineExpose({ activo, listo, finalizara, anexar, reset });
 
             <CampoTexto
                 v-model="campos.documento"
-                label="Documento"
-                placeholder="N.º / nombre (opcional)"
+                label="Código de documento *"
+                placeholder="N.º / código"
+                required
             />
             <CampoTexto
                 v-model="campos.cantidad"
@@ -259,7 +265,7 @@ defineExpose({ activo, listo, finalizara, anexar, reset });
                 <span
                     class="text-xs font-bold tracking-wide text-gray-500 uppercase"
                 >
-                    Foto del documento
+                    Foto del documento *
                 </span>
 
                 <!-- Cámara en vivo -->

@@ -5,9 +5,11 @@ namespace App\Pwa\Controllers;
 use App\Events\HojaRutaCreada;
 use App\Events\HojaRutaFinalizada;
 use App\Http\Controllers\Controller;
+use App\Jobs\Wialon\ActualizarContadorKilometrajeJob;
 use App\Models\HRControl\DetalleRuta;
 use App\Models\HRControl\Ruta;
 use App\Models\WialonSTK\WialonConductor;
+use App\Models\WialonSTK\WialonUnidad;
 use App\Pwa\Controllers\Concerns\GuardaDocumentoRuta;
 use App\Pwa\Controllers\Concerns\ResuelveCatalogos;
 use App\Pwa\Models\PwaRuta;
@@ -104,6 +106,7 @@ class RutaController extends Controller
         if ($finaliza) {
             HojaRutaFinalizada::dispatch($ruta->idruta);
         }
+        $this->empujarContadorSiCorresponde($ruta->placa, $datos['kilometraje'] ?? null);
 
         return $this->respuesta($ruta->idruta, 201);
     }
@@ -157,8 +160,34 @@ class RutaController extends Controller
         if ($finaliza) {
             HojaRutaFinalizada::dispatch($ruta);
         }
+        $this->empujarContadorSiCorresponde($modelo->placa, $datos['kilometraje'] ?? null);
 
         return $this->respuesta($ruta, 201);
+    }
+
+    /**
+     * Si el kilometraje que acaba de registrar el conductor superó al
+     * contador que Wialon tenía para esa unidad, lo empuja de vuelta
+     * (`unit/update_mileage_counter`) — en cola, no bloquea la respuesta.
+     */
+    private function empujarContadorSiCorresponde(?string $placa, mixed $kilometraje): void
+    {
+        if ($placa === null || $kilometraje === null || ! is_numeric($kilometraje)) {
+            return;
+        }
+
+        $km = (int) $kilometraje;
+
+        $unidad = WialonUnidad::query()->where('placa', $placa)->first();
+        if ($unidad === null) {
+            return;
+        }
+
+        if ($unidad->contador_kilometraje_km !== null && $km <= $unidad->contador_kilometraje_km) {
+            return;
+        }
+
+        ActualizarContadorKilometrajeJob::dispatch($unidad->wialon_unidad_id, $km);
     }
 
     private function respuesta(string $idruta, int $status): JsonResponse

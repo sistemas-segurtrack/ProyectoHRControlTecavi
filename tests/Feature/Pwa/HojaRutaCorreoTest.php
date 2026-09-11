@@ -4,7 +4,9 @@ use App\Mail\HojaRutaCreadaMail;
 use App\Mail\HojaRutaFinalizadaMail;
 use App\Models\HRControl\Contacto;
 use App\Models\HRControl\TipoDocumento;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 
 test('crear una hoja de ruta avisa por correo al contacto de la geocerca inicial', function () {
@@ -45,6 +47,7 @@ test('sin geocerca al crear no se manda nada', function () {
 
 test('crear con un documento condicionaFin=1 manda el correo de creada y el de finalizada', function () {
     Mail::fake();
+    Storage::fake('public');
     Contacto::factory()->create(['geocerca' => 'PLANTA LIMA', 'correo' => ['ops@segurtrack.com']]);
     $tipo = TipoDocumento::create(['nombre' => 'GUIA', 'condicionaFin' => '1']);
     Sanctum::actingAs(conductorPwa(), ['*']);
@@ -53,7 +56,11 @@ test('crear con un documento condicionaFin=1 manda el correo de creada y el de f
         'placa' => 'AAA-111',
         'geocerca' => 'PLANTA LIMA',
         'adjuntar' => '1',
-        'documento' => ['tipo_documento_id' => $tipo->idtipoDocumento, 'documento' => 'GR-1'],
+        'documento' => [
+            'tipo_documento_id' => $tipo->idtipoDocumento,
+            'documento' => 'GR-1',
+            'imagen' => UploadedFile::fake()->image('guia.jpg'),
+        ],
     ])->assertCreated();
 
     Mail::assertSent(HojaRutaCreadaMail::class);
@@ -63,6 +70,7 @@ test('crear con un documento condicionaFin=1 manda el correo de creada y el de f
 
 test('registrar un avance que finaliza avisa a la geocerca del avance, no la inicial', function () {
     Mail::fake();
+    Storage::fake('public');
     Contacto::factory()->create(['geocerca' => 'ORIGEN', 'correo' => ['origen@segurtrack.com']]);
     Contacto::factory()->create(['geocerca' => 'DESTINO', 'correo' => ['destino@segurtrack.com']]);
     $tipo = TipoDocumento::create(['nombre' => 'GUIA', 'condicionaFin' => '1']);
@@ -76,7 +84,11 @@ test('registrar un avance que finaliza avisa a la geocerca del avance, no la ini
     $this->post("/api/pwa/rutas/{$idruta}/ordenes", [
         'geocerca' => 'DESTINO',
         'adjuntar' => '1',
-        'documento' => ['tipo_documento_id' => $tipo->idtipoDocumento],
+        'documento' => [
+            'tipo_documento_id' => $tipo->idtipoDocumento,
+            'documento' => 'GR-2',
+            'imagen' => UploadedFile::fake()->image('guia.jpg'),
+        ],
     ])->assertCreated();
 
     Mail::assertSent(
@@ -87,6 +99,7 @@ test('registrar un avance que finaliza avisa a la geocerca del avance, no la ini
 
 test('registrar un avance sin condicionaFin no manda el correo de finalizada', function () {
     Mail::fake();
+    Storage::fake('public');
     Contacto::factory()->create(['geocerca' => 'DESTINO', 'correo' => ['destino@segurtrack.com']]);
     $tipo = TipoDocumento::create(['nombre' => 'PACKING', 'condicionaFin' => '0']);
     Sanctum::actingAs(conductorPwa(), ['*']);
@@ -96,7 +109,11 @@ test('registrar un avance sin condicionaFin no manda el correo de finalizada', f
     $this->post("/api/pwa/rutas/{$idruta}/ordenes", [
         'geocerca' => 'DESTINO',
         'adjuntar' => '1',
-        'documento' => ['tipo_documento_id' => $tipo->idtipoDocumento],
+        'documento' => [
+            'tipo_documento_id' => $tipo->idtipoDocumento,
+            'documento' => 'PL-2',
+            'imagen' => UploadedFile::fake()->image('packing.jpg'),
+        ],
     ])->assertCreated();
 
     Mail::assertNotSent(HojaRutaFinalizadaMail::class);

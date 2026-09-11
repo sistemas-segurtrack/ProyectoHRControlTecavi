@@ -1,11 +1,14 @@
 <?php
 
+use App\Jobs\Wialon\ActualizarContadorKilometrajeJob;
 use App\Models\HRControl\DetalleRuta;
 use App\Models\HRControl\DocRuta;
 use App\Models\HRControl\Ruta;
 use App\Models\HRControl\TipoDocumento;
+use App\Models\WialonSTK\WialonUnidad;
 use App\Pwa\Models\PwaRuta;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 
@@ -159,7 +162,11 @@ test('crear ruta con documento condicionaFin = 1 nace finalizada', function () {
     $this->post('/api/pwa/rutas', [
         'placa' => 'AAA-111',
         'adjuntar' => '1',
-        'documento' => ['tipo_documento_id' => $tipo->idtipoDocumento, 'documento' => 'GR-1'],
+        'documento' => [
+            'tipo_documento_id' => $tipo->idtipoDocumento,
+            'documento' => 'GR-1',
+            'imagen' => UploadedFile::fake()->image('guia.jpg'),
+        ],
     ])
         ->assertCreated()
         ->assertJsonPath('data.estado', Ruta::FINALIZADA)
@@ -219,6 +226,7 @@ test('un documento con condicionaFin = 1 finaliza la hoja de ruta', function () 
         'documento' => [
             'tipo_documento_id' => $tipo->idtipoDocumento,
             'documento' => 'GR-1',
+            'imagen' => UploadedFile::fake()->image('guia.jpg'),
         ],
     ])->assertCreated();
 
@@ -265,4 +273,89 @@ test('login expone el catálogo de tipos de documento con su condicionaFin', fun
         ->assertJsonPath('catalogos.tipos_documento.0.nombre', 'GUIA')
         ->assertJsonPath('catalogos.tipos_documento.0.condiciona_fin', true)
         ->assertJsonPath('catalogos.tipos_documento.1.condiciona_fin', false);
+});
+
+test('no deja crear una ruta con kilometraje menor al contador de Wialon', function () {
+    WialonUnidad::create([
+        'wialon_unidad_id' => 555,
+        'placa' => 'AAA-111',
+        'nombre' => 'UNIDAD AAA',
+        'contador_kilometraje_km' => 5000,
+    ]);
+    Sanctum::actingAs(conductorPwa(), ['*']);
+
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '4999'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['kilometraje' => 'El kilometraje no puede ser menor al último registrado (5000 km).']);
+});
+
+test('deja crear una ruta con kilometraje igual o mayor al contador de Wialon', function () {
+    WialonUnidad::create([
+        'wialon_unidad_id' => 555,
+        'placa' => 'AAA-111',
+        'nombre' => 'UNIDAD AAA',
+        'contador_kilometraje_km' => 5000,
+    ]);
+    Sanctum::actingAs(conductorPwa(), ['*']);
+
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '5000'])
+        ->assertCreated();
+});
+
+test('no deja registrar un avance con kilometraje menor al ya registrado en la misma ruta', function () {
+    Sanctum::actingAs(conductorPwa(), ['*']);
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '300'])
+        ->json('data.idruta');
+
+    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['kilometraje' => '299'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['kilometraje' => 'El kilometraje no puede ser menor al último registrado (300 km).']);
+});
+
+test('empuja el contador a Wialon cuando el kilometraje ingresado lo supera', function () {
+    Queue::fake();
+    WialonUnidad::create([
+        'wialon_unidad_id' => 777,
+        'placa' => 'AAA-111',
+        'nombre' => 'UNIDAD AAA',
+        'contador_kilometraje_km' => 100,
+    ]);
+    Sanctum::actingAs(conductorPwa(), ['*']);
+
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '150'])
+        ->assertCreated();
+
+    Queue::assertPushed(
+        ActualizarContadorKilometrajeJob::class,
+        fn (ActualizarContadorKilometrajeJob $job) => $job->wialonUnidadId === 777 && $job->kilometraje === 150,
+    );
+});
+
+test('no empuja el contador a Wialon cuando el kilometraje ingresado no lo supera', function () {
+    Queue::fake();
+    WialonUnidad::create([
+        'wialon_unidad_id' => 777,
+        'placa' => 'AAA-111',
+        'nombre' => 'UNIDAD AAA',
+        'contador_kilometraje_km' => 150,
+    ]);
+    Sanctum::actingAs(conductorPwa(), ['*']);
+
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '150'])
+        ->assertCreated();
+
+    Queue::assertNotPushed(ActualizarContadorKilometrajeJob::class);
+});
+
+test('adjuntar sin código de documento o sin foto falla la validación', function () {
+    $tipo = TipoDocumento::create(['nombre' => 'GUIA', 'condicionaFin' => '0']);
+    Sanctum::actingAs(conductorPwa(), ['*']);
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111'])->json('data.idruta');
+
+    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", [
+        'adjuntar' => true,
+        'documento' => ['tipo_documento_id' => $tipo->idtipoDocumento],
+    ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['documento.documento', 'documento.imagen']);
 });
