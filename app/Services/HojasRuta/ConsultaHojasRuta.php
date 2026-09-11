@@ -92,6 +92,10 @@ class ConsultaHojasRuta
             'estado' => trim((string) $request->query('estado', '')),
             'geocerca' => trim((string) $request->query('geocerca', '')),
             'hoja' => trim((string) $request->query('hoja', '')),
+            // Acota a un único detalle (`iddetalleRuta`) — el export de una hoja
+            // puntual lo usa para que el documento salga tal cual la fila que
+            // se ve en el modal, no todo el itinerario de la ruta.
+            'detalle' => trim((string) $request->query('detalle', '')),
         ];
     }
 
@@ -140,6 +144,7 @@ class ConsultaHojasRuta
             ->when($filtros['placa'] !== '', fn ($q) => $q->where('ruta.placa', 'like', "%{$filtros['placa']}%"))
             ->when($filtros['id'] !== '', fn ($q) => $q->where('detalleruta.ruta_idruta', 'like', "%{$filtros['id']}%"))
             ->when(($filtros['hoja'] ?? '') !== '', fn ($q) => $q->where('detalleruta.ruta_idruta', $filtros['hoja']))
+            ->when(($filtros['detalle'] ?? '') !== '', fn ($q) => $q->where('detalleruta.iddetalleRuta', $filtros['detalle']))
             ->when($filtros['desde'] !== '', fn ($q) => $q->whereDate('detalleruta.fhRegistro', '>=', $filtros['desde']))
             ->when($filtros['hasta'] !== '', fn ($q) => $q->whereDate('detalleruta.fhRegistro', '<=', $filtros['hasta']))
             ->when($filtros['estado'] !== '', fn ($q) => $q->where('detalleruta.estado', $filtros['estado']))

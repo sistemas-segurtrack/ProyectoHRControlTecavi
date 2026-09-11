@@ -5,8 +5,12 @@ use App\Models\HRControl\DetalleRuta;
 use App\Models\HRControl\DocRuta;
 use App\Models\HRControl\Ruta;
 use App\Models\User;
+use App\Services\HojasRuta\ConsultaHojasRuta;
+use Illuminate\Http\Request;
 use Inertia\Testing\AssertableInertia as Assert;
 use PhpOffice\PhpSpreadsheet\Reader\Xlsx as XlsxReader;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
 
 test('un invitado es redirigido al login', function () {
     $this->get(route('modulos.rutas.index'))->assertRedirect(route('login'));
@@ -184,7 +188,7 @@ test('el admin exporta el listado detallado a PDF con el logo', function () {
         ->and($response->getContent())->toStartWith('%PDF-');
 });
 
-test('el export por hoja acota a una sola hoja de ruta', function () {
+test('el export por hoja acota a una sola hoja de ruta y arma el formulario A4 vertical', function () {
     $contacto = Contacto::factory()->create();
     $a = Ruta::factory()->create(['idruta' => 'T000801', 'placa' => 'AAA-111']);
     $b = Ruta::factory()->create(['idruta' => 'T000802', 'placa' => 'BBB-222']);
@@ -195,7 +199,33 @@ test('el export por hoja acota a una sola hoja de ruta', function () {
         ->get(route('modulos.rutas.exportar.pdf', ['hoja' => 'T000801']));
 
     $response->assertOk();
-    expect($response->headers->get('content-disposition'))->toContain('T000801');
+    expect($response->headers->get('content-type'))->toContain('application/pdf')
+        ->and($response->getContent())->toStartWith('%PDF-')
+        ->and($response->headers->get('content-disposition'))->toContain('T000801');
+});
+
+test('el formulario A4 de una hoja puntual (misma vista del PDF) excluye datos de otras hojas', function () {
+    $contacto = Contacto::factory()->create();
+    $a = Ruta::factory()->create(['idruta' => 'T000803', 'piloto' => 'PILOTO UNO']);
+    $b = Ruta::factory()->create(['idruta' => 'T000804', 'piloto' => 'PILOTO DOS']);
+    DetalleRuta::factory()->for($contacto, 'contacto')->create(['ruta_idruta' => $a->idruta, 'orden' => 1, 'geocerca' => 'GEOCERCA UNO']);
+    DetalleRuta::factory()->for($contacto, 'contacto')->create(['ruta_idruta' => $b->idruta, 'orden' => 1, 'geocerca' => 'GEOCERCA DOS']);
+
+    $hojas = app(ConsultaHojasRuta::class);
+    $filtros = $hojas->filtros(Request::create('/', 'GET', ['hoja' => 'T000803']));
+    $filas = $hojas->filas($filtros);
+
+    $html = view('exports.hoja-ruta-formulario', [
+        'idHoja' => $filtros['hoja'],
+        'logo' => null,
+        'primera' => $filas->first() ?? [],
+        'columnasItinerario' => ConsultaHojasRuta::COLUMNAS_FORMULARIO,
+        'itinerario' => $filas->map(fn (array $f) => $hojas->filaFormulario($f))->all(),
+        'documentos' => [],
+    ])->render();
+
+    expect($html)->toContain('HOJA DE RUTA', 'PILOTO UNO', 'GEOCERCA UNO')
+        ->not->toContain('PILOTO DOS', 'GEOCERCA DOS');
 });
 
 test('el export XLSX de una sola hoja arma el formulario con cabecera, itinerario y documentos', function () {
@@ -233,6 +263,7 @@ test('el export XLSX de una sola hoja arma el formulario con cabecera, itinerari
         'documento' => 'GRE-900',
         'producto' => 'Cemento',
         'cantidad' => '10',
+        'imagen' => 'https://tools.segurtrack.com/hrcontrol/storage/docruta/foto-900.jpg',
     ]);
 
     $response = $this->actingAs(crearAdmin())
@@ -251,7 +282,10 @@ test('el export XLSX de una sola hoja arma el formulario con cabecera, itinerari
 
     $hoja = $libro->getActiveSheet();
     expect($hoja->getCell('C1')->getValue())->toBe('HOJA DE RUTA')
+        ->and($hoja->getStyle('C1')->getAlignment()->getHorizontal())->toBe(Alignment::HORIZONTAL_RIGHT)
         ->and($hoja->getCell('C2')->getValue())->toBe('N° T000900')
+        // Sin bordes en los campos del encabezado.
+        ->and($hoja->getStyle('A4:D4')->getBorders()->getBottom()->getBorderStyle())->toBe(Border::BORDER_NONE)
         ->and($hoja->getCell('B4')->getValue())->toBe('CARLOS FORMULARIO')
         ->and($hoja->getCell('F4')->getValue())->toBe('ANA COPILOTO')
         ->and($hoja->getCell('I4')->getValue())->toBe('PRE-9')
@@ -280,7 +314,46 @@ test('el export XLSX de una sola hoja arma el formulario con cabecera, itinerari
             }
         }
     }
-    expect($texto)->toContain('DOCUMENTOS ADJUNTOS', 'Documento', 'GRE-900', 'Cemento');
+    expect($texto)->toContain('DOCUMENTOS ADJUNTOS', 'Documento', 'GRE-900', 'Cemento', 'Ver Archivo');
+
+    // La celda "Archivo" es un hipervínculo, no la URL como texto plano
+    // (encabezado: filas 1-5; itinerario: cabecera fila 7 + 2 paradas → filas
+    // 8-9; documentos: título fila 11, cabecera fila 12, primer documento 13).
+    expect($hoja->getCell('H13')->getValue())->toBe('Ver Archivo')
+        ->and($hoja->getCell('H13')->getHyperlink()->getUrl())->toBe('https://tools.segurtrack.com/hrcontrol/storage/docruta/foto-900.jpg');
+});
+
+test('el export XLSX de una hoja acota a un solo detalle cuando se pide (tal cual el modal)', function () {
+    $contacto = Contacto::factory()->create();
+    $ruta = Ruta::factory()->create(['idruta' => 'T000910', 'placa' => 'DET-001']);
+
+    DetalleRuta::factory()->for($contacto, 'contacto')->create([
+        'ruta_idruta' => $ruta->idruta, 'orden' => 1, 'geocerca' => 'PARADA 1', 'kilometraje' => '10',
+    ]);
+    $d2 = DetalleRuta::factory()->for($contacto, 'contacto')->create([
+        'ruta_idruta' => $ruta->idruta, 'orden' => 2, 'geocerca' => 'PARADA 2', 'kilometraje' => '20',
+    ]);
+
+    $response = $this->actingAs(crearAdmin())
+        ->get(route('modulos.rutas.exportar.excel', ['hoja' => 'T000910', 'detalle' => $d2->iddetalleRuta]));
+
+    $archivo = tempnam(sys_get_temp_dir(), 'xlsx');
+    file_put_contents($archivo, $response->streamedContent());
+    $libro = (new XlsxReader)->load($archivo);
+    unlink($archivo);
+
+    $hoja = $libro->getActiveSheet();
+    $texto = [];
+    foreach ($hoja->getRowIterator() as $fila) {
+        foreach ($fila->getCellIterator() as $celda) {
+            $valor = $celda->getValue();
+            if ($valor !== null && $valor !== '') {
+                $texto[] = (string) $valor;
+            }
+        }
+    }
+
+    expect($texto)->toContain('PARADA 2')->and($texto)->not->toContain('PARADA 1');
 });
 
 test('el export XLSX sin hoja puntual sigue usando el listado plano de siempre', function () {

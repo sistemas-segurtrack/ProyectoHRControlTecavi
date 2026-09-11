@@ -248,9 +248,13 @@ function recargarDatos(): void {
     recargar(props.paginaMeta.actual);
 }
 
-function exportar(formato: 'excel' | 'pdf', hoja?: string | null): void {
+function exportar(
+    formato: 'excel' | 'pdf',
+    hoja?: string | null,
+    detalle?: number | null,
+): void {
     const params = hoja
-        ? { hoja }
+        ? { hoja, ...(detalle ? { detalle } : {}) }
         : {
               conductor: filtroConductor.value,
               placa: filtroPlaca.value,
@@ -829,16 +833,28 @@ watch(
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" class="w-56">
                     <DropdownMenuItem
-                        @click="exportar('excel', seleccionada?.hoja)"
+                        @click="
+                            exportar(
+                                'excel',
+                                seleccionada?.hoja,
+                                seleccionada?.id,
+                            )
+                        "
                     >
                         <FileSpreadsheet class="h-4 w-4 text-emerald-600" />
-                        Excel (XLSX) (detallado)
+                        Excel (XLSX)
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                        @click="exportar('pdf', seleccionada?.hoja)"
+                        @click="
+                            exportar(
+                                'pdf',
+                                seleccionada?.hoja,
+                                seleccionada?.id,
+                            )
+                        "
                     >
                         <FileText class="h-4 w-4 text-[#b51927]" />
-                        PDF (detallado)
+                        PDF (A4)
                     </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>

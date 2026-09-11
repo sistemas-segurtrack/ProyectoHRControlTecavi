@@ -122,8 +122,9 @@ class ExportarExcel extends Controller
                     (string) ($doc['envase'] ?? ''),
                     (string) ($doc['peso_neto'] ?? ''),
                     (string) ($doc['peso_bruto'] ?? ''),
-                    (string) ($doc['imagen'] ?? ''),
+                    '',
                 ], null, 'A'.$fila);
+                $this->celdaArchivo($hoja, 'I'.$fila, is_string($doc['imagen'] ?? null) ? $doc['imagen'] : null);
                 $fila++;
             }
         }
@@ -188,14 +189,18 @@ class ExportarExcel extends Controller
 
         $hoja->getRowDimension(1)->setRowHeight(24);
         $hoja->getRowDimension(2)->setRowHeight(20);
+        // El título va alineado a la derecha (más profesional que centrado,
+        // con el logo a la izquierda).
         $hoja->mergeCells('C1:N1')->setCellValue('C1', 'HOJA DE RUTA');
         $hoja->getStyle('C1')->getFont()->setBold(true)->setSize(18)->getColor()->setRGB(self::ROJO);
-        $hoja->getStyle('C1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $hoja->getStyle('C1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
         $hoja->mergeCells('C2:N2')->setCellValue('C2', 'N° '.$idHoja);
         $hoja->getStyle('C2')->getFont()->setBold(true)->setSize(13);
-        $hoja->getStyle('C2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $hoja->getStyle('C2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
+        // Sin bordes en los campos del encabezado (conductor/copiloto/…):
+        // solo la etiqueta resaltada con fondo y el valor al lado.
         $campo = function (string $celdaEtiqueta, string $celdaValorDesde, string $celdaValorHasta, string $etiqueta, string $valor) use ($hoja): void {
             $hoja->setCellValue($celdaEtiqueta, $etiqueta);
             $hoja->getStyle($celdaEtiqueta)->getFont()->setBold(true);
@@ -204,7 +209,6 @@ class ExportarExcel extends Controller
 
             $hoja->mergeCells("{$celdaValorDesde}:{$celdaValorHasta}")->setCellValue($celdaValorDesde, $valor !== '' ? $valor : '—');
             $hoja->getStyle($celdaValorDesde)->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
-            $hoja->getStyle("{$celdaEtiqueta}:{$celdaValorHasta}")->getBorders()->getBottom()->setBorderStyle(Border::BORDER_THIN);
         };
 
         $hoja->getRowDimension(4)->setRowHeight(18);
@@ -268,8 +272,9 @@ class ExportarExcel extends Controller
                 (string) ($doc['envase'] ?? ''),
                 (string) ($doc['peso_neto'] ?? ''),
                 (string) ($doc['peso_bruto'] ?? ''),
-                (string) ($doc['imagen'] ?? ''),
+                '',
             ], null, 'A'.$fila);
+            $this->celdaArchivo($hoja, 'H'.$fila, is_string($doc['imagen'] ?? null) ? $doc['imagen'] : null);
             $fila++;
         }
 
@@ -283,6 +288,24 @@ class ExportarExcel extends Controller
             $hoja->getStyle('A'.$fila)->getFont()->setItalic(true)->getColor()->setRGB('9CA3AF');
             $this->conBordes($hoja, "A{$fila}:H{$fila}");
         }
+    }
+
+    /**
+     * Celda "Archivo": hipervínculo a la imagen del documento, mostrando "Ver
+     * Archivo" en vez de la URL completa; "—" si no tiene foto adjunta.
+     */
+    private function celdaArchivo(Worksheet $hoja, string $celda, ?string $url): void
+    {
+        if ($url === null || $url === '') {
+            $hoja->setCellValue($celda, '—');
+            $hoja->getStyle($celda)->getFont()->getColor()->setRGB('9CA3AF');
+
+            return;
+        }
+
+        $hoja->setCellValue($celda, 'Ver Archivo');
+        $hoja->getCell($celda)->getHyperlink()->setUrl($url);
+        $hoja->getStyle($celda)->getFont()->setUnderline(true)->getColor()->setRGB('2563EB');
     }
 
     private function conBordes(Worksheet $hoja, string $rango): void
