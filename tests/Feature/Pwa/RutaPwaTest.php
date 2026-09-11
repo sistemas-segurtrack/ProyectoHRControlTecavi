@@ -302,14 +302,46 @@ test('deja crear una ruta con kilometraje igual o mayor al contador de Wialon', 
         ->assertCreated();
 });
 
-test('no deja registrar un avance con kilometraje menor al ya registrado en la misma ruta', function () {
+test('no deja cerrar un tramo con kilometraje menor al de su propia parada de inicio', function () {
     Sanctum::actingAs(conductorPwa(), ['*']);
+    // Orden 1 (impar) = inicio del tramo. Orden 2 (par) = su fin.
     $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '300'])
         ->json('data.idruta');
 
     $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['kilometraje' => '299'])
         ->assertStatus(422)
         ->assertJsonValidationErrors(['kilometraje' => 'El kilometraje no puede ser menor al último registrado (300 km).']);
+});
+
+test('un tramo nuevo no queda atado al kilometraje de un tramo ya cerrado', function () {
+    Sanctum::actingAs(conductorPwa(), ['*']);
+    // Tramo 1: orden 1 (inicio, 300) -> orden 2 (fin, 350).
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '300'])
+        ->json('data.idruta');
+    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['kilometraje' => '350'])
+        ->assertCreated();
+
+    // Orden 3 (impar) abre un tramo nuevo: un kilometraje MENOR al del tramo
+    // 1 ya cerrado (350) no debería rechazarse — es un tramo distinto.
+    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['kilometraje' => '200'])
+        ->assertCreated();
+});
+
+test('dentro del tramo nuevo, su propio fin sigue sin poder bajar de su propio inicio', function () {
+    Sanctum::actingAs(conductorPwa(), ['*']);
+    // Tramo 1: orden 1 (300) -> orden 2 (350).
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '300'])
+        ->json('data.idruta');
+    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['kilometraje' => '350'])
+        ->assertCreated();
+    // Tramo 2: orden 3 (200, inicio de un tramo nuevo e independiente).
+    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['kilometraje' => '200'])
+        ->assertCreated();
+
+    // Orden 4 (par) cierra el tramo 2: no puede bajar de SU propio inicio (200).
+    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['kilometraje' => '199'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['kilometraje' => 'El kilometraje no puede ser menor al último registrado (200 km).']);
 });
 
 test('empuja el contador a Wialon cuando el kilometraje ingresado lo supera', function () {
