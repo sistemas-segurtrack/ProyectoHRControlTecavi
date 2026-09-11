@@ -881,21 +881,21 @@ watch(
                                 <th class="px-2.5 py-2">Geocerca Inicial</th>
                                 <th class="px-2.5 py-2">Coordenada Inicial</th>
                                 <th class="px-2.5 py-2">
+                                    Fecha Inicial Sistema
+                                </th>
+                                <th class="px-2.5 py-2">
                                     Fecha Inicial Conductor
                                 </th>
                                 <th class="px-2.5 py-2">Km Inicial</th>
                                 <th class="px-2.5 py-2">Diferencia Inicial</th>
                                 <th class="px-2.5 py-2">Geocerca Final</th>
                                 <th class="px-2.5 py-2">Coordenada Final</th>
+                                <th class="px-2.5 py-2">Fecha Final Sistema</th>
                                 <th class="px-2.5 py-2">
                                     Fecha Final Conductor
                                 </th>
-                                <th class="px-2.5 py-2">
-                                    Fecha Inicial Sistema
-                                </th>
-                                <th class="px-2.5 py-2">Fecha Final Sistema</th>
-                                <th class="px-2.5 py-2">Diferencia Final</th>
                                 <th class="px-2.5 py-2">Km Final</th>
+                                <th class="px-2.5 py-2">Diferencia Final</th>
                                 <th class="px-2.5 py-2">Estado</th>
                             </tr>
                         </thead>
@@ -916,6 +916,7 @@ watch(
                                 <td class="font-mono">
                                     {{ seleccionada.coordenada ?? '-' }}
                                 </td>
+                                <td>{{ seleccionada.sis_inicial ?? '-' }}</td>
                                 <td>{{ seleccionada.cond_inicial ?? '-' }}</td>
                                 <td>{{ seleccionada.km_inicial ?? '-' }}</td>
                                 <td
@@ -936,9 +937,9 @@ watch(
                                 <td class="font-mono">
                                     {{ seleccionada.coordenada_final ?? '-' }}
                                 </td>
-                                <td>{{ seleccionada.cond_final ?? '-' }}</td>
-                                <td>{{ seleccionada.sis_inicial ?? '-' }}</td>
                                 <td>{{ seleccionada.sis_final ?? '-' }}</td>
+                                <td>{{ seleccionada.cond_final ?? '-' }}</td>
+                                <td>{{ seleccionada.km_final ?? '-' }}</td>
                                 <td
                                     class="font-semibold"
                                     :class="
@@ -951,7 +952,6 @@ watch(
                                 >
                                     {{ seleccionada.dif_final?.texto ?? '-' }}
                                 </td>
-                                <td>{{ seleccionada.km_final ?? '-' }}</td>
                                 <td>
                                     <EstadoBadge
                                         :estado="seleccionada.estado"
