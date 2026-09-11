@@ -138,7 +138,8 @@ type ResultadoEnvio =
     | 'sincronizado'
     | 'red-caida'
     | 'sin-avance'
-    | 'descartado';
+    | 'descartado'
+    | 'error';
 
 async function procesarUno(envio: EnvioPendiente): Promise<ResultadoEnvio> {
     const { state, setRutaActiva } = useAuth();
@@ -207,20 +208,32 @@ async function procesarUno(envio: EnvioPendiente): Promise<ResultadoEnvio> {
             return 'descartado';
         }
 
-        // Error de validación u otro no recuperable: reintentarlo para
-        // siempre no serviría de nada.
-        await eliminar(envio.id);
-        return 'descartado';
+        // Error de validación u otro no recuperable: reintentarlo solo no
+        // serviría de nada, pero descartarlo en silencio perdería el avance
+        // sin que el conductor se entere — queda marcado y visible en vez de
+        // borrarse.
+        const mensaje =
+            e instanceof ApiError ? e.message : 'No se pudo enviar.';
+        await actualizar(envio.id, { ultimoError: mensaje });
+        return 'error';
     }
 }
 
-/** Vacía la cola en orden. Se llama al volver la señal y al abrir la app. */
+/**
+ * Vacía la cola en orden. Se llama al volver la señal y al abrir la app. Los
+ * envíos ya marcados con `ultimoError` NO se reintentan solos — casi siempre
+ * es un error que se va a repetir (p. ej. un kilometraje que ya no es
+ * válido), así que insistir a lo tonto no ayuda; quedan visibles para que el
+ * conductor decida (ver `descartar()`).
+ */
 export async function procesarCola(): Promise<void> {
     if (sincronizando.value) return;
     sincronizando.value = true;
     try {
         for (;;) {
-            const cola = await listar();
+            const cola = (await listar()).filter(
+                (e) => e.ultimoError === undefined,
+            );
             if (cola.length === 0) return;
 
             let avanzo = false;
@@ -235,5 +248,33 @@ export async function procesarCola(): Promise<void> {
         }
     } finally {
         sincronizando.value = false;
+    }
+}
+
+/** Descarta a mano un envío marcado con error — se pierde ese avance. */
+export async function descartar(id: string): Promise<void> {
+    const envio = (await listar()).find((e) => e.id === id);
+    await eliminar(id);
+    if (!envio) return;
+
+    // El estado local optimista (la ruta o el avance que se veían "en
+    // curso" mientras esto seguía en la cola) ya no va a llegar a
+    // existir de verdad — si sigue mostrándose, el conductor queda
+    // atascado creyendo que tiene una hoja de ruta que el servidor nunca
+    // tuvo.
+    const { state, setRutaActiva } = useAuth();
+    const idrutaDelEnvio = envio.idruta ?? envio.tempId;
+    const rutaActiva = state.rutaActiva;
+    if (rutaActiva === null || rutaActiva.idruta !== idrutaDelEnvio) return;
+
+    if (envio.tipo === 'crear-ruta') {
+        setRutaActiva(null);
+    } else {
+        // Se quita el último orden: es el que este envío había agregado
+        // de forma optimista.
+        setRutaActiva({
+            ...rutaActiva,
+            ordenes: rutaActiva.ordenes.slice(0, -1),
+        });
     }
 }

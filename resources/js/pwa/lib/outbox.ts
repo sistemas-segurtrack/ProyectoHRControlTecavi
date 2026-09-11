@@ -32,6 +32,13 @@ export type EnvioPendiente = {
      *  reintentar. */
     entradas: Array<[string, string | File]>;
     creadoEn: number;
+    /**
+     * Si el servidor lo rechazó al intentar sincronizarlo (validación u otro
+     * error que no sea de red) queda marcado acá en vez de descartarse en
+     * silencio — necesita que alguien lo vea y decida, no tiene sentido
+     * reintentarlo solo porque casi siempre vuelve a fallar por lo mismo.
+     */
+    ultimoError?: string;
 };
 
 function abrirDB(): Promise<IDBDatabase> {
@@ -45,11 +52,16 @@ function abrirDB(): Promise<IDBDatabase> {
     });
 }
 
-const resumen = reactive({ pendientes: 0 });
+const resumen = reactive<{ pendientes: number; errores: EnvioPendiente[] }>({
+    pendientes: 0,
+    errores: [],
+});
 
 async function actualizarResumen(): Promise<void> {
     try {
-        resumen.pendientes = (await listar()).length;
+        const todos = await listar();
+        resumen.errores = todos.filter((e) => e.ultimoError !== undefined);
+        resumen.pendientes = todos.length - resumen.errores.length;
     } catch {
         /* IndexedDB no disponible (privado/incógnito estricto): sin cola */
     }
@@ -111,8 +123,9 @@ export async function actualizar(
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error as Error);
     });
+    await actualizarResumen();
 }
 
 export function usePendientes() {
-    return { pendientes: readonly(resumen) };
+    return { resumen: readonly(resumen) };
 }
