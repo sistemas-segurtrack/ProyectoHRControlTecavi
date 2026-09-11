@@ -13,6 +13,28 @@ type EventoInstalacion = Event & {
 // mismo prefijo de subpath que el resto de la PWA (ver LoginPage.vue).
 const logoUrl = `${import.meta.env.VITE_PWA_BASE_PATH ?? ''}/recursos/logo-segurtrack.png`;
 
+// No existe una API estándar para preguntarle al navegador "¿ya la instalé
+// antes?" en una pestaña normal (fuera de modo standalone) — se guarda el
+// propio evento `appinstalled` en localStorage para reconocerlo en visitas
+// futuras y no volver a ofrecer instalar algo que ya está instalado.
+const LS_INSTALADA = 'pwa_instalada';
+
+function marcarInstaladaLocal(): void {
+    try {
+        localStorage.setItem(LS_INSTALADA, '1');
+    } catch {
+        /* almacenamiento no disponible */
+    }
+}
+
+function yaInstaladaLocal(): boolean {
+    try {
+        return localStorage.getItem(LS_INSTALADA) === '1';
+    } catch {
+        return false;
+    }
+}
+
 let eventoDiferido: EventoInstalacion | null = null;
 
 const puedeInstalar = ref(false);
@@ -30,12 +52,14 @@ function onAppInstalled(): void {
     instalado.value = true;
     eventoDiferido = null;
     puedeInstalar.value = false;
+    marcarInstaladaLocal();
 }
 
 onMounted(() => {
     esIOS.value =
         /iphone|ipad|ipod/i.test(navigator.userAgent) &&
         !('MSStream' in window);
+    instalado.value = yaInstaladaLocal();
 
     window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
     window.addEventListener('appinstalled', onAppInstalled);
@@ -52,7 +76,10 @@ async function instalar(): Promise<void> {
     try {
         await eventoDiferido.prompt();
         const { outcome } = await eventoDiferido.userChoice;
-        if (outcome === 'accepted') instalado.value = true;
+        if (outcome === 'accepted') {
+            instalado.value = true;
+            marcarInstaladaLocal();
+        }
     } finally {
         eventoDiferido = null;
         puedeInstalar.value = false;
@@ -82,7 +109,8 @@ async function instalar(): Promise<void> {
                 v-if="instalado"
                 class="rounded-xl bg-emerald-50 px-4 py-3 text-center text-sm font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
             >
-                Ya está instalada — buscala en tu pantalla de inicio.
+                Ya está instalado en tu dispositivo — abrilo desde el ícono en
+                tu pantalla de inicio.
             </p>
 
             <button
