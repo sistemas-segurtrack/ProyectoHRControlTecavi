@@ -1,9 +1,6 @@
 <script setup lang="ts">
-import { ArrowRight, Download, Share } from '@lucide/vue';
+import { Download, Share } from '@lucide/vue';
 import { onMounted, onUnmounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
-
-const router = useRouter();
 
 // `BeforeInstallPromptEvent` no está en el lib.dom.d.ts estándar de
 // TypeScript (es propietario de Chromium) — se tipa mínimo con lo que se usa.
@@ -62,10 +59,6 @@ async function instalar(): Promise<void> {
         instalando.value = false;
     }
 }
-
-function continuar(): void {
-    router.replace({ name: 'home' });
-}
 </script>
 
 <template>
@@ -122,15 +115,6 @@ function continuar(): void {
                 Buscá «Instalar aplicación» o «Agregar a pantalla de inicio» en
                 el menú del navegador.
             </p>
-
-            <button
-                type="button"
-                class="flex items-center justify-center gap-1.5 py-2 text-sm font-semibold text-gray-500 dark:text-gray-400"
-                @click="continuar"
-            >
-                Continuar sin instalar
-                <ArrowRight class="h-4 w-4" />
-            </button>
         </div>
     </div>
 </template>
