@@ -4,9 +4,24 @@ import tailwindcss from '@tailwindcss/vite';
 import vue from '@vitejs/plugin-vue';
 import laravel from 'laravel-vite-plugin';
 import { bunny } from 'laravel-vite-plugin/fonts';
+import { loadEnv } from 'vite';
 import { defineConfig, lazyPlugins } from 'vite-plus';
 
+// Detrás de un proxy en subpath (p. ej. tools.segurtrack.com/hrcontrol) los
+// assets se sirven en /hrcontrol/build/ en vez de /build/. `@vite()` ya lo
+// resuelve bien vía ASSET_URL (config/pwa.php), pero eso NO alcanza para lo
+// que Vite hornea DENTRO del propio bundle: los chunks cargados con import()
+// dinámico y los `url()` de fuentes en el CSS usan como raíz el `base` de
+// este archivo, no ASSET_URL. Sin esto, esos dos casos quedaban pidiendo
+// `/build/...` sin el prefijo y el proxy los devolvía 404.
+const pwaBasePath = loadEnv(
+    process.env.NODE_ENV ?? 'production',
+    process.cwd(),
+    'VITE_',
+).VITE_PWA_BASE_PATH;
+
 export default defineConfig({
+    base: `${pwaBasePath ?? ''}/build/`,
     plugins: lazyPlugins(() => [
         laravel({
             input: [
