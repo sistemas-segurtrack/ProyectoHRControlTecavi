@@ -863,12 +863,14 @@ watch(
                                 <th class="px-2.5 py-2">Carreta</th>
                                 <th class="px-2.5 py-2">Precintos</th>
                                 <th class="px-2.5 py-2">Geocerca Inicial</th>
-                                <th class="px-2.5 py-2">Geocerca Final</th>
                                 <th class="px-2.5 py-2">Coordenada Inicial</th>
-                                <th class="px-2.5 py-2">Coordenada Final</th>
                                 <th class="px-2.5 py-2">
                                     Fecha Inicial Conductor
                                 </th>
+                                <th class="px-2.5 py-2">Km Inicial</th>
+                                <th class="px-2.5 py-2">Diferencia Inicial</th>
+                                <th class="px-2.5 py-2">Geocerca Final</th>
+                                <th class="px-2.5 py-2">Coordenada Final</th>
                                 <th class="px-2.5 py-2">
                                     Fecha Final Conductor
                                 </th>
@@ -876,9 +878,7 @@ watch(
                                     Fecha Inicial Sistema
                                 </th>
                                 <th class="px-2.5 py-2">Fecha Final Sistema</th>
-                                <th class="px-2.5 py-2">Diferencia Inicial</th>
                                 <th class="px-2.5 py-2">Diferencia Final</th>
-                                <th class="px-2.5 py-2">Km Inicial</th>
                                 <th class="px-2.5 py-2">Km Final</th>
                                 <th class="px-2.5 py-2">Estado</th>
                             </tr>
@@ -897,19 +897,11 @@ watch(
                                 <td>{{ seleccionada.carreta ?? '-' }}</td>
                                 <td>{{ seleccionada.precintos ?? '-' }}</td>
                                 <td>{{ seleccionada.geocerca ?? '-' }}</td>
-                                <td>
-                                    {{ seleccionada.geocerca_final ?? '-' }}
-                                </td>
                                 <td class="font-mono">
                                     {{ seleccionada.coordenada ?? '-' }}
                                 </td>
-                                <td class="font-mono">
-                                    {{ seleccionada.coordenada_final ?? '-' }}
-                                </td>
                                 <td>{{ seleccionada.cond_inicial ?? '-' }}</td>
-                                <td>{{ seleccionada.cond_final ?? '-' }}</td>
-                                <td>{{ seleccionada.sis_inicial ?? '-' }}</td>
-                                <td>{{ seleccionada.sis_final ?? '-' }}</td>
+                                <td>{{ seleccionada.km_inicial ?? '-' }}</td>
                                 <td
                                     class="font-semibold"
                                     :class="
@@ -922,6 +914,15 @@ watch(
                                 >
                                     {{ seleccionada.dif_inicial?.texto ?? '-' }}
                                 </td>
+                                <td>
+                                    {{ seleccionada.geocerca_final ?? '-' }}
+                                </td>
+                                <td class="font-mono">
+                                    {{ seleccionada.coordenada_final ?? '-' }}
+                                </td>
+                                <td>{{ seleccionada.cond_final ?? '-' }}</td>
+                                <td>{{ seleccionada.sis_inicial ?? '-' }}</td>
+                                <td>{{ seleccionada.sis_final ?? '-' }}</td>
                                 <td
                                     class="font-semibold"
                                     :class="
@@ -934,7 +935,6 @@ watch(
                                 >
                                     {{ seleccionada.dif_final?.texto ?? '-' }}
                                 </td>
-                                <td>{{ seleccionada.km_inicial ?? '-' }}</td>
                                 <td>{{ seleccionada.km_final ?? '-' }}</td>
                                 <td>
                                     <EstadoBadge
