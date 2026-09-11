@@ -54,6 +54,31 @@ class ConsultaHojasRuta
     ];
 
     /**
+     * Encabezados de la tabla de itinerario del export "hoja de ruta" (una sola
+     * hoja, formato documento): los datos ya puestos en la cabecera del
+     * formulario (conductor, copiloto, placa, carreta, precintos) no se
+     * repiten aquí, salvo "Conductor" — igual que en el formato físico.
+     *
+     * @var list<string>
+     */
+    public const COLUMNAS_FORMULARIO = [
+        'Conductor',
+        'Geocerca Inicial',
+        'Geocerca Final',
+        'Coordenada Inicial',
+        'Coordenada Final',
+        'Fecha Inicial Conductor',
+        'Fecha Final Conductor',
+        'Fecha Inicial Sistema',
+        'Fecha Final Sistema',
+        'Diferencia Inicial',
+        'Diferencia Final',
+        'Km Inicial',
+        'Km Final',
+        'Estado',
+    ];
+
+    /**
      * @return array<string, string>
      */
     public function filtros(Request $request): array
@@ -265,6 +290,33 @@ class ConsultaHojasRuta
             (string) ($fila['placa'] ?? ''),
             (string) ($fila['carreta'] ?? ''),
             (string) ($fila['precintos'] ?? ''),
+            (string) ($fila['geocerca'] ?? ''),
+            (string) ($fila['geocerca_final'] ?? ''),
+            (string) ($fila['coordenada'] ?? ''),
+            (string) ($fila['coordenada_final'] ?? ''),
+            (string) ($fila['cond_inicial'] ?? ''),
+            (string) ($fila['cond_final'] ?? ''),
+            (string) ($fila['sis_inicial'] ?? ''),
+            (string) ($fila['sis_final'] ?? ''),
+            $this->difTexto($fila['dif_inicial'] ?? null),
+            $this->difTexto($fila['dif_final'] ?? null),
+            (string) ($fila['km_inicial'] ?? ''),
+            (string) ($fila['km_final'] ?? ''),
+            (string) ($fila['estado_label'] ?? ''),
+        ];
+    }
+
+    /**
+     * La fila de la tabla de itinerario del export "hoja de ruta" (una sola
+     * hoja), en el mismo orden que `COLUMNAS_FORMULARIO`.
+     *
+     * @param  array<string, mixed>  $fila
+     * @return list<string>
+     */
+    public function filaFormulario(array $fila): array
+    {
+        return [
+            (string) ($fila['conductor'] ?? ''),
             (string) ($fila['geocerca'] ?? ''),
             (string) ($fila['geocerca_final'] ?? ''),
             (string) ($fila['coordenada'] ?? ''),

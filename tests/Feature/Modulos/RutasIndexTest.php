@@ -6,6 +6,7 @@ use App\Models\HRControl\DocRuta;
 use App\Models\HRControl\Ruta;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
+use PhpOffice\PhpSpreadsheet\Reader\Xlsx as XlsxReader;
 
 test('un invitado es redirigido al login', function () {
     $this->get(route('modulos.rutas.index'))->assertRedirect(route('login'));
@@ -195,4 +196,102 @@ test('el export por hoja acota a una sola hoja de ruta', function () {
 
     $response->assertOk();
     expect($response->headers->get('content-disposition'))->toContain('T000801');
+});
+
+test('el export XLSX de una sola hoja arma el formulario con cabecera, itinerario y documentos', function () {
+    $contacto = Contacto::factory()->create();
+    $ruta = Ruta::factory()->create([
+        'idruta' => 'T000900',
+        'placa' => 'FRM-001',
+        'carreta' => 'CARR-01',
+        'piloto' => 'CARLOS FORMULARIO',
+        'copiloto' => 'ANA COPILOTO',
+        'precintos' => 'PRE-9',
+    ]);
+
+    $d1 = DetalleRuta::factory()->for($contacto, 'contacto')->create([
+        'ruta_idruta' => $ruta->idruta,
+        'orden' => 1,
+        'geocerca' => 'PLANTA A',
+        'kilometraje' => '100',
+        'fhRegistro' => '2026-01-01 08:00:00',
+        'estado' => DetalleRuta::EN_RUTA,
+    ]);
+
+    DetalleRuta::factory()->for($contacto, 'contacto')->create([
+        'ruta_idruta' => $ruta->idruta,
+        'orden' => 2,
+        'geocerca' => 'PLANTA B',
+        'kilometraje' => '250',
+        'fhRegistro' => '2026-01-01 15:30:00',
+        'estado' => DetalleRuta::FINALIZADO,
+    ]);
+
+    DocRuta::create([
+        'detalleRuta_iddetalleRuta' => $d1->iddetalleRuta,
+        'tipoDocumento_idtipoDocumento' => 1,
+        'documento' => 'GRE-900',
+        'producto' => 'Cemento',
+        'cantidad' => '10',
+    ]);
+
+    $response = $this->actingAs(crearAdmin())
+        ->get(route('modulos.rutas.exportar.excel', ['hoja' => 'T000900']));
+
+    $response->assertOk();
+    expect($response->headers->get('content-disposition'))->toContain('T000900');
+
+    $archivo = tempnam(sys_get_temp_dir(), 'xlsx');
+    file_put_contents($archivo, $response->streamedContent());
+    $libro = (new XlsxReader)->load($archivo);
+    unlink($archivo);
+
+    expect($libro->getSheetCount())->toBe(1)
+        ->and($libro->getActiveSheet()->getTitle())->toBe('Hoja de ruta');
+
+    $hoja = $libro->getActiveSheet();
+    expect($hoja->getCell('C1')->getValue())->toBe('HOJA DE RUTA')
+        ->and($hoja->getCell('C2')->getValue())->toBe('N° T000900')
+        ->and($hoja->getCell('B4')->getValue())->toBe('CARLOS FORMULARIO')
+        ->and($hoja->getCell('F4')->getValue())->toBe('ANA COPILOTO')
+        ->and($hoja->getCell('I4')->getValue())->toBe('PRE-9')
+        ->and($hoja->getCell('B5')->getValue())->toBe('FRM-001')
+        ->and($hoja->getCell('F5')->getValue())->toBe('CARR-01')
+        // Cabecera del itinerario en la fila 7 (encabezado: filas 1-5, fila 6 en blanco).
+        ->and($hoja->getCell('A7')->getValue())->toBe('Conductor')
+        ->and($hoja->getCell('B7')->getValue())->toBe('Geocerca Inicial')
+        // Itinerario en orden (parada 1 primero).
+        ->and($hoja->getCell('B8')->getValue())->toBe('PLANTA A')
+        ->and($hoja->getCell('C8')->getValue())->toBe('PLANTA B')
+        ->and((string) $hoja->getCell('L8')->getValue())->toBe('100')
+        ->and((string) $hoja->getCell('M8')->getValue())->toBe('250');
+
+    // "DOCUMENTOS ADJUNTOS" y su tabla, en algún lado más abajo.
+    $texto = [];
+    foreach ($hoja->getRowIterator() as $fila) {
+        foreach ($fila->getCellIterator() as $celda) {
+            $valor = $celda->getValue();
+            if ($valor !== null && $valor !== '') {
+                $texto[] = (string) $valor;
+            }
+        }
+    }
+    expect($texto)->toContain('DOCUMENTOS ADJUNTOS', 'Documento', 'GRE-900', 'Cemento');
+});
+
+test('el export XLSX sin hoja puntual sigue usando el listado plano de siempre', function () {
+    $contacto = Contacto::factory()->create();
+    $ruta = Ruta::factory()->create(['idruta' => 'T000901', 'placa' => 'LST-001']);
+    DetalleRuta::factory()->for($contacto, 'contacto')->create(['ruta_idruta' => $ruta->idruta, 'orden' => 1]);
+
+    $response = $this->actingAs(crearAdmin())->get(route('modulos.rutas.exportar.excel'));
+
+    $archivo = tempnam(sys_get_temp_dir(), 'xlsx');
+    file_put_contents($archivo, $response->streamedContent());
+    $libro = (new XlsxReader)->load($archivo);
+    unlink($archivo);
+
+    expect($libro->getSheetCount())->toBe(2)
+        ->and($libro->getSheet(0)->getTitle())->toBe('Hojas de ruta')
+        ->and($libro->getSheet(1)->getTitle())->toBe('Documentos adjuntos');
 });
