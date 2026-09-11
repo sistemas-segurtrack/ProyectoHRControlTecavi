@@ -1,19 +1,17 @@
 <script setup lang="ts">
-import { usePage } from '@inertiajs/vue3';
-import AppLogoIcon from '@/components/AppLogoIcon.vue';
-
-const name = usePage().props.name;
+import { recursoUrl } from '@/lib/utils';
 </script>
 
 <template>
     <div
-        class="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-md"
+        class="mx-auto flex h-13 w-48 max-w-full shrink-0 items-center justify-center overflow-hidden rounded-lg px-2 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:rounded-md group-data-[collapsible=icon]:px-0 dark:bg-white"
     >
-        <AppLogoIcon class="size-5 fill-current text-white dark:text-black" />
-    </div>
-    <div class="ml-1 grid flex-1 text-left text-sm">
-        <span class="mb-0.5 truncate leading-tight font-semibold">{{
-            name
-        }}</span>
+        <img
+            :src="recursoUrl('logo-segurtrack.png')"
+            alt="Segurtrack"
+            class="h-9 w-auto max-w-full object-contain group-data-[collapsible=icon]:h-20 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:max-w-none group-data-[collapsible=icon]:object-cover group-data-[collapsible=icon]:object-top"
+            draggable="false"
+            @contextmenu.prevent
+        />
     </div>
 </template>
