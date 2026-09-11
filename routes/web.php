@@ -7,7 +7,11 @@ use App\Http\Controllers\Backend\Web\Modulos\Rutas\RutasController;
 use App\Http\Controllers\Backend\Web\Modulos\Rutas\RutasCrudController;
 use Illuminate\Support\Facades\Route;
 
-Route::inertia('/', 'Welcome')->name('home');
+// Herramienta interna sin registro público: la raíz manda directo al login en
+// vez del scaffold "Welcome" de ejemplo. Un usuario ya autenticado que caiga
+// aquí sigue de largo hacia el dashboard porque la ruta de login lleva el
+// middleware `guest`.
+Route::redirect('/', '/login')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'Dashboard')->name('dashboard');

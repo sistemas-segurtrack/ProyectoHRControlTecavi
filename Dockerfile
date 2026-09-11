@@ -63,12 +63,22 @@ RUN npm ci --no-audit --no-fund
 
 COPY . .
 
-# El build hornea estos valores dentro del JavaScript de la PWA (Conductor):
-# VITE_APP_NAME es cosmético; VITE_PWA_BASE_PATH es el prefijo con el que se
-# sirve la app detrás del proxy (vacío si va en la raíz o en un subdominio,
-# "/hrcontrol" para el subpath tools.segurtrack.com/hrcontrol).
+# El build hornea estos valores dentro del JavaScript: VITE_APP_NAME es
+# cosmético; VITE_PWA_BASE_PATH es el prefijo con el que se sirve la PWA
+# (Conductor) detrás del proxy (vacío si va en la raíz o en un subdominio,
+# "/hrcontrol" para el subpath tools.segurtrack.com/hrcontrol). APP_URL es
+# necesario por otra razón: `vp build` corre `php artisan wayfinder:generate`,
+# que arma cada helper de ruta (`login()`, `dashboard()`, etc. en
+# `resources/js/routes/`) llamando a `route()` del lado del servidor, y eso
+# produce una URL ABSOLUTA usando el `APP_URL` que vea Laravel en ese momento.
+# Sin este ARG, `config('app.url')` cae al default de Laravel
+# (`http://localhost`) y todos los <Link> de la app (Log in, Register,
+# Dashboard, ...) navegaban a `http://localhost/...` en vez de a
+# `https://tools.segurtrack.com/hrcontrol/...` — no es un placeholder inocuo,
+# queda grabado dentro del bundle.
 ARG VITE_APP_NAME="Proyecto Tecavi - HRControl"
 ARG VITE_PWA_BASE_PATH=""
+ARG APP_URL="http://localhost"
 
 # `vp build` arranca Laravel para generar las rutas tipadas de Wayfinder, así
 # que necesita un .env con clave válida. Es de usar y tirar: apunta a SQLite en
@@ -85,7 +95,8 @@ RUN set -eux; \
         'SESSION_DRIVER=array' \
         'QUEUE_CONNECTION=sync' \
         > .env; \
-    printf 'VITE_APP_NAME="%s"\nVITE_PWA_BASE_PATH="%s"\n' \
+    printf 'APP_URL="%s"\nVITE_APP_NAME="%s"\nVITE_PWA_BASE_PATH="%s"\n' \
+        "${APP_URL}" \
         "${VITE_APP_NAME}" \
         "${VITE_PWA_BASE_PATH}" \
         >> .env; \
