@@ -8,8 +8,9 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-// Unidades/placas + contador de kilometraje: cada minuto (el odómetro cambia al circular).
-Schedule::command('wialon:sync --solo=unidades')->everyMinute()->withoutOverlapping();
-
-// Resto de catálogos (conductores, carretas, geocercas): cada hora.
-Schedule::command('wialon:sync')->hourly()->withoutOverlapping();
+// Todos los catálogos (conductores, unidades + contador de kilometraje,
+// carretas, geocercas) cada minuto. Antes solo "unidades" corría cada minuto
+// (el odómetro cambia al circular) y el resto cada hora; al pasar TODO a
+// cada minuto, ese sync completo ya cubre unidades, así que el comando
+// separado de arriba quedaba duplicado y se quitó.
+Schedule::command('wialon:sync')->everyMinute()->withoutOverlapping();
