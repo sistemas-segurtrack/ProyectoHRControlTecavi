@@ -3,11 +3,14 @@
 namespace App\Providers;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
+use Inertia\Inertia;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -26,6 +29,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         $this->configureUrlGeneration();
+        $this->configureInertiaUrl();
     }
 
     /**
@@ -75,5 +79,34 @@ class AppServiceProvider extends ServiceProvider
         if (is_string($scheme)) {
             URL::forceScheme($scheme);
         }
+    }
+
+    /**
+     * Antepone el subpath de `APP_URL` (p. ej. `/hrcontrol`) a la `url` que
+     * Inertia comparte en cada página.
+     *
+     * `Inertia\Response::getUrl()` la arma con `$request->fullUrl()`, que lee
+     * directo de la petición ya recortada por el `ProxyPass` de Apache — no
+     * pasa por `route()`/`url()`, así que `forceRootUrl()` no lo alcanza. Sin
+     * esto, el cliente de Inertia hace `history.replaceState(..., page.url)`
+     * al hidratar con `page.url = "/"`, y la barra de direcciones "pierde" el
+     * `/hrcontrol` apenas carga la página.
+     */
+    protected function configureInertiaUrl(): void
+    {
+        // El prefijo se relee en cada petición (no se fija una vez al boot)
+        // para que un cambio de `app.url` en tiempo de ejecución (tests,
+        // `config()->set()`) también se refleje sin tener que reiniciar la
+        // app.
+        Inertia::resolveUrlUsing(function (Request $request): string {
+            $appUrl = config('app.url');
+            $prefix = is_string($appUrl)
+                ? rtrim((string) parse_url($appUrl, PHP_URL_PATH), '/')
+                : '';
+
+            $url = Str::start(Str::after($request->fullUrl(), $request->getSchemeAndHttpHost()), '/');
+
+            return $prefix === '' ? $url : $prefix.$url;
+        });
     }
 }
