@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\Route;
 
 // Herramienta interna sin registro público: la raíz manda directo al login en
 // vez del scaffold "Welcome" de ejemplo. Un usuario ya autenticado que caiga
-// aquí sigue de largo hacia el dashboard porque la ruta de login lleva el
-// middleware `guest`.
+// aquí sigue de largo hacia Rutas (config('fortify.home')) porque la ruta de
+// login lleva el middleware `guest`.
 Route::redirect('/', '/login')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
