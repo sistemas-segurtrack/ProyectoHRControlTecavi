@@ -68,6 +68,10 @@ async function iniciar(): Promise<void> {
             'Completa el tipo, el código y la foto del documento adjunto.';
         return;
     }
+    if (form.value.kilometraje.trim() === '') {
+        error.value = 'El kilometraje es obligatorio.';
+        return;
+    }
     // El aviso ya está visible junto al campo (se actualiza al instante
     // mientras se escribe) — no hace falta duplicarlo en el banner general.
     if (errorKm.value) return;
@@ -178,6 +182,7 @@ async function iniciar(): Promise<void> {
                     label="Kilometraje inicial"
                     inputmode="numeric"
                     placeholder="Km del odómetro"
+                    required
                 />
                 <p
                     v-if="errorKm"

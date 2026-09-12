@@ -24,7 +24,7 @@ trait ValidaKilometraje
      */
     protected function reglasKilometraje(): array
     {
-        return ['nullable', 'integer', 'min:0', 'max:'.WialonService::CONTADOR_KM_MAX];
+        return ['required', 'integer', 'min:0', 'max:'.WialonService::CONTADOR_KM_MAX];
     }
 
     /**

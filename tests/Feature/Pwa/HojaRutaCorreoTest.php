@@ -17,7 +17,7 @@ test('crear una hoja de ruta avisa por correo al contacto de la geocerca inicial
     ]);
     Sanctum::actingAs(conductorPwa(), ['*']);
 
-    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA'])
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100'])
         ->assertCreated();
 
     Mail::assertSent(HojaRutaCreadaMail::class, fn (HojaRutaCreadaMail $mail) => $mail->hasTo('a@segurtrack.com')
@@ -30,7 +30,7 @@ test('sin contacto en la geocerca no se manda nada', function () {
     Mail::fake();
     Sanctum::actingAs(conductorPwa(), ['*']);
 
-    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'SIN CONTACTO'])
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'SIN CONTACTO', 'kilometraje' => '100'])
         ->assertCreated();
 
     Mail::assertNothingSent();
@@ -40,7 +40,7 @@ test('sin geocerca al crear no se manda nada', function () {
     Mail::fake();
     Sanctum::actingAs(conductorPwa(), ['*']);
 
-    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111'])->assertCreated();
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])->assertCreated();
 
     Mail::assertNothingSent();
 });
@@ -55,6 +55,7 @@ test('crear con un documento condicionaFin=1 manda el correo de creada y el de f
     $this->post('/api/pwa/rutas', [
         'placa' => 'AAA-111',
         'geocerca' => 'PLANTA LIMA',
+        'kilometraje' => '100',
         'adjuntar' => '1',
         'documento' => [
             'tipo_documento_id' => $tipo->idtipoDocumento,
@@ -76,13 +77,14 @@ test('registrar un avance que finaliza avisa a la geocerca del avance, no la ini
     $tipo = TipoDocumento::create(['nombre' => 'GUIA', 'condicionaFin' => '1']);
     Sanctum::actingAs(conductorPwa(), ['*']);
 
-    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'ORIGEN'])
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'ORIGEN', 'kilometraje' => '100'])
         ->json('data.idruta');
 
     Mail::assertNotSent(HojaRutaFinalizadaMail::class);
 
     $this->post("/api/pwa/rutas/{$idruta}/ordenes", [
         'geocerca' => 'DESTINO',
+        'kilometraje' => '150',
         'adjuntar' => '1',
         'documento' => [
             'tipo_documento_id' => $tipo->idtipoDocumento,
@@ -104,10 +106,11 @@ test('registrar un avance sin condicionaFin no manda el correo de finalizada', f
     $tipo = TipoDocumento::create(['nombre' => 'PACKING', 'condicionaFin' => '0']);
     Sanctum::actingAs(conductorPwa(), ['*']);
 
-    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111'])->json('data.idruta');
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])->json('data.idruta');
 
     $this->post("/api/pwa/rutas/{$idruta}/ordenes", [
         'geocerca' => 'DESTINO',
+        'kilometraje' => '150',
         'adjuntar' => '1',
         'documento' => [
             'tipo_documento_id' => $tipo->idtipoDocumento,
@@ -124,7 +127,7 @@ test('el reintento con el mismo Idempotency-Key no duplica el correo', function 
     Contacto::factory()->create(['geocerca' => 'PLANTA LIMA', 'correo' => ['a@segurtrack.com']]);
     Sanctum::actingAs(conductorPwa(), ['*']);
 
-    $datos = ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA'];
+    $datos = ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100'];
     $this->withHeader('Idempotency-Key', 'abc-123')->postJson('/api/pwa/rutas', $datos)->assertCreated();
     $this->withHeader('Idempotency-Key', 'abc-123')->postJson('/api/pwa/rutas', $datos)->assertCreated();
 
@@ -137,7 +140,7 @@ test('los destinatarios de varios contactos con la misma geocerca no se repiten'
     Contacto::factory()->create(['geocerca' => 'PLANTA LIMA', 'correo' => ['a@segurtrack.com', 'b@segurtrack.com']]);
     Sanctum::actingAs(conductorPwa(), ['*']);
 
-    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA'])->assertCreated();
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100'])->assertCreated();
 
     Mail::assertSent(HojaRutaCreadaMail::class, function (HojaRutaCreadaMail $mail) {
         $destinatarios = collect($mail->to)->pluck('address')->all();

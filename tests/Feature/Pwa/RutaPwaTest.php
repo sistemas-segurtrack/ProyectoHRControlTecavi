@@ -20,6 +20,24 @@ test('rutas/activa devuelve data null cuando no hay ruta', function () {
         ->assertExactJson(['data' => null]);
 });
 
+test('el kilometraje es obligatorio para crear una ruta', function () {
+    Sanctum::actingAs(conductorPwa(), ['*']);
+
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['kilometraje' => 'El campo kilometraje es obligatorio.']);
+});
+
+test('el kilometraje es obligatorio para registrar un avance', function () {
+    Sanctum::actingAs(conductorPwa(), ['*']);
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])
+        ->json('data.idruta');
+
+    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['geocerca' => 'DESTINO'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['kilometraje' => 'El campo kilometraje es obligatorio.']);
+});
+
 test('crear ruta genera hoja T###### con el conductor como piloto y orden 1 EN RUTA', function () {
     $c = conductorPwa('42703898', '123456');
     Sanctum::actingAs($c, ['*']);
@@ -46,6 +64,7 @@ test('crear ruta respeta el fhRegistro enviado por el conductor', function () {
 
     $this->postJson('/api/pwa/rutas', [
         'placa' => 'AAA-111',
+        'kilometraje' => '100',
         'fhRegistro' => '2026-01-15T08:30',
     ])
         ->assertCreated()
@@ -58,7 +77,7 @@ test('crear ruta respeta el fhRegistro enviado por el conductor', function () {
 test('crear ruta sin fhRegistro cae en la hora actual', function () {
     Sanctum::actingAs(conductorPwa(), ['*']);
 
-    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111'])->assertCreated();
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])->assertCreated();
 
     $detalle = DetalleRuta::first();
     expect($detalle->fhRegistro->diffInSeconds(now()))->toBeLessThan(5);
@@ -66,10 +85,11 @@ test('crear ruta sin fhRegistro cae en la hora actual', function () {
 
 test('registrar orden respeta el fhRegistro enviado por el conductor', function () {
     Sanctum::actingAs(conductorPwa(), ['*']);
-    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111'])->json('data.idruta');
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])->json('data.idruta');
 
     $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", [
         'geocerca' => 'PLANTA SUR',
+        'kilometraje' => '150',
         'fhRegistro' => '2026-01-16T14:00',
     ])
         ->assertCreated()
@@ -82,18 +102,18 @@ test('registrar orden respeta el fhRegistro enviado por el conductor', function 
 test('no deja crear una segunda ruta si ya hay una en curso', function () {
     Sanctum::actingAs(conductorPwa(), ['*']);
 
-    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111'])->assertCreated();
-    $this->postJson('/api/pwa/rutas', ['placa' => 'BBB-222'])->assertStatus(409);
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])->assertCreated();
+    $this->postJson('/api/pwa/rutas', ['placa' => 'BBB-222', 'kilometraje' => '100'])->assertStatus(409);
 });
 
 test('el Idempotency-Key reproduce la respuesta sin crear otra ruta', function () {
     Sanctum::actingAs(conductorPwa(), ['*']);
 
     $r1 = $this->withHeader('Idempotency-Key', 'abc-123')
-        ->postJson('/api/pwa/rutas', ['placa' => 'AAA-111'])->assertCreated();
+        ->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])->assertCreated();
 
     $r2 = $this->withHeader('Idempotency-Key', 'abc-123')
-        ->postJson('/api/pwa/rutas', ['placa' => 'ZZZ-999']);
+        ->postJson('/api/pwa/rutas', ['placa' => 'ZZZ-999', 'kilometraje' => '100']);
 
     $r2->assertCreated()->assertHeader('Idempotency-Replayed', 'true')
         ->assertJsonPath('data.idruta', $r1->json('data.idruta'));
@@ -123,10 +143,10 @@ test('registrar orden finaliza la anterior (observer vía API)', function () {
 test('un conductor no puede registrar orden en la ruta de otro', function () {
     $a = conductorPwa('11111111');
     Sanctum::actingAs($a, ['*']);
-    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111'])->json('data.idruta');
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])->json('data.idruta');
 
     Sanctum::actingAs(conductorPwa('22222222'), ['*']);
-    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['kilometraje' => '9'])
+    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['kilometraje' => '150'])
         ->assertNotFound();
 });
 
@@ -138,6 +158,7 @@ test('crear ruta con documento adjunto lo guarda en el primer orden', function (
     $this->post('/api/pwa/rutas', [
         'placa' => 'AAA-111',
         'geocerca' => 'PLANTA LIMA',
+        'kilometraje' => '100',
         'adjuntar' => '1',
         'documento' => [
             'tipo_documento_id' => $tipo->idtipoDocumento,
@@ -161,6 +182,7 @@ test('crear ruta con documento condicionaFin = 1 nace finalizada', function () {
 
     $this->post('/api/pwa/rutas', [
         'placa' => 'AAA-111',
+        'kilometraje' => '100',
         'adjuntar' => '1',
         'documento' => [
             'tipo_documento_id' => $tipo->idtipoDocumento,
@@ -181,10 +203,11 @@ test('registrar orden con documento adjunto guarda el DocRuta y el archivo', fun
     $tipo = TipoDocumento::create(['nombre' => 'PACKING LIST', 'condicionaFin' => '0']);
     Sanctum::actingAs(conductorPwa(), ['*']);
 
-    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111'])->json('data.idruta');
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])->json('data.idruta');
 
     $this->post("/api/pwa/rutas/{$idruta}/ordenes", [
         'geocerca' => 'PLANTA SUR',
+        'kilometraje' => '150',
         'adjuntar' => '1',
         'documento' => [
             'tipo_documento_id' => $tipo->idtipoDocumento,
@@ -218,10 +241,11 @@ test('un documento con condicionaFin = 1 finaliza la hoja de ruta', function () 
     $tipo = TipoDocumento::create(['nombre' => 'GUIA DE REMISION', 'condicionaFin' => '1']);
     Sanctum::actingAs(conductorPwa(), ['*']);
 
-    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111'])->json('data.idruta');
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])->json('data.idruta');
 
     $res = $this->post("/api/pwa/rutas/{$idruta}/ordenes", [
         'geocerca' => 'DESTINO',
+        'kilometraje' => '150',
         'adjuntar' => '1',
         'documento' => [
             'tipo_documento_id' => $tipo->idtipoDocumento,
@@ -241,7 +265,7 @@ test('un documento con condicionaFin = 1 finaliza la hoja de ruta', function () 
 
 test('el tipo de documento es obligatorio si se activa Adjuntar', function () {
     Sanctum::actingAs(conductorPwa(), ['*']);
-    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111'])->json('data.idruta');
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])->json('data.idruta');
 
     $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['adjuntar' => true, 'documento' => ['documento' => 'X']])
         ->assertStatus(422)
@@ -251,7 +275,7 @@ test('el tipo de documento es obligatorio si se activa Adjuntar', function () {
 test('el peso neto debe ser numérico y el error sale en español', function () {
     $tipo = TipoDocumento::create(['nombre' => 'GUIA', 'condicionaFin' => '0']);
     Sanctum::actingAs(conductorPwa(), ['*']);
-    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111'])->json('data.idruta');
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])->json('data.idruta');
 
     $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", [
         'adjuntar' => true,
@@ -382,9 +406,10 @@ test('no empuja el contador a Wialon cuando el kilometraje ingresado no lo super
 test('adjuntar sin código de documento o sin foto falla la validación', function () {
     $tipo = TipoDocumento::create(['nombre' => 'GUIA', 'condicionaFin' => '0']);
     Sanctum::actingAs(conductorPwa(), ['*']);
-    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111'])->json('data.idruta');
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])->json('data.idruta');
 
     $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", [
+        'kilometraje' => '150',
         'adjuntar' => true,
         'documento' => ['tipo_documento_id' => $tipo->idtipoDocumento],
     ])
