@@ -66,10 +66,12 @@ test('el filtro ID Hoja de Ruta busca por el código de la ruta', function () {
         );
 });
 
-test('el km y la fecha final se toman del siguiente orden', function () {
+test('el km y la fecha final se toman del siguiente orden (mismo tramo)', function () {
     $ruta = Ruta::factory()->create();
     $contacto = Contacto::factory()->create();
 
+    // Orden 1 (impar) = inicio del tramo; orden 2 (par) = su fin — un solo
+    // tramo, una sola fila.
     DetalleRuta::factory()->for($contacto, 'contacto')->create([
         'ruta_idruta' => $ruta->idruta,
         'orden' => 1,
@@ -87,11 +89,46 @@ test('el km y la fecha final se toman del siguiente orden', function () {
     $this->actingAs(crearAdmin())
         ->get(route('modulos.rutas.index'))
         ->assertInertia(fn (Assert $page) => $page
-            ->has('rutas', 2)
-            ->where('rutas.1.km_inicial', '100')
-            ->where('rutas.1.km_final', '250')
-            ->where('rutas.1.fh_final', '01/01/2026 15:30')
+            ->has('rutas', 1)
+            ->where('rutas.0.km_inicial', '100')
+            ->where('rutas.0.km_final', '250')
+            ->where('rutas.0.fh_final', '01/01/2026 15:30')
+        );
+});
+
+test('un tramo sin cerrar (parada impar sin su par) no tiene datos finales', function () {
+    $ruta = Ruta::factory()->create();
+    $contacto = Contacto::factory()->create();
+
+    DetalleRuta::factory()->for($contacto, 'contacto')->create([
+        'ruta_idruta' => $ruta->idruta,
+        'orden' => 1,
+        'kilometraje' => '100',
+    ]);
+
+    $this->actingAs(crearAdmin())
+        ->get(route('modulos.rutas.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('rutas', 1)
+            ->where('rutas.0.km_inicial', '100')
             ->where('rutas.0.km_final', null)
+        );
+});
+
+test('una parada par no aparece como fila propia (ya es el final de su impar)', function () {
+    $ruta = Ruta::factory()->create();
+    $contacto = Contacto::factory()->create();
+
+    DetalleRuta::factory()->for($contacto, 'contacto')->create(['ruta_idruta' => $ruta->idruta, 'orden' => 1]);
+    DetalleRuta::factory()->for($contacto, 'contacto')->create(['ruta_idruta' => $ruta->idruta, 'orden' => 2]);
+    // Tramo 2: orden 3 (impar, sin cerrar todavía).
+    DetalleRuta::factory()->for($contacto, 'contacto')->create(['ruta_idruta' => $ruta->idruta, 'orden' => 3]);
+
+    $this->actingAs(crearAdmin())
+        ->get(route('modulos.rutas.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            // Dos tramos: (1,2) y (3, sin cerrar) — no tres filas.
+            ->has('rutas', 2)
         );
 });
 
@@ -143,15 +180,16 @@ test('la fila expone la comparación conductor/sistema y los documentos para el 
     $this->actingAs(crearAdmin())
         ->get(route('modulos.rutas.index'))
         ->assertInertia(fn (Assert $page) => $page
-            ->where('rutas.1.geocerca', 'PLANTA A')
-            ->where('rutas.1.geocerca_final', 'PLANTA B')
-            ->where('rutas.1.cond_inicial', '01/01/2026 08:00')
-            ->where('rutas.1.sis_inicial', '01/01/2026 08:20')
-            ->where('rutas.1.dif_inicial.texto', '+20m')
-            ->where('rutas.1.dif_inicial.signo', 'pos')
-            ->where('rutas.1.dif_final.signo', 'neg')
-            ->has('rutas.1.documentos', 1)
-            ->where('rutas.1.documentos.0.documento', 'GRE-001')
+            ->has('rutas', 1)
+            ->where('rutas.0.geocerca', 'PLANTA A')
+            ->where('rutas.0.geocerca_final', 'PLANTA B')
+            ->where('rutas.0.cond_inicial', '01/01/2026 08:00')
+            ->where('rutas.0.sis_inicial', '01/01/2026 08:20')
+            ->where('rutas.0.dif_inicial.texto', '+20m')
+            ->where('rutas.0.dif_inicial.signo', 'pos')
+            ->where('rutas.0.dif_final.signo', 'neg')
+            ->has('rutas.0.documentos', 1)
+            ->where('rutas.0.documentos.0.documento', 'GRE-001')
         );
 });
 
@@ -322,25 +360,33 @@ test('el export XLSX de una sola hoja arma el formulario con cabecera, itinerari
     expect($texto)->toContain('DOCUMENTOS ADJUNTOS', 'Documento', 'GRE-900', 'Cemento', 'Ver Archivo');
 
     // La celda "Archivo" es un hipervínculo, no la URL como texto plano
-    // (encabezado: filas 1-5; itinerario: cabecera fila 7 + 2 paradas → filas
-    // 8-9; documentos: título fila 11, cabecera fila 12, primer documento 13).
-    expect($hoja->getCell('H13')->getValue())->toBe('Ver Archivo')
-        ->and($hoja->getCell('H13')->getHyperlink()->getUrl())->toBe('https://tools.segurtrack.com/hrcontrol/storage/docruta/foto-900.jpg');
+    // (encabezado: filas 1-5; itinerario: cabecera fila 7, un solo tramo →
+    // fila 8; documentos: título fila 10, cabecera fila 11, primer documento 12).
+    expect($hoja->getCell('H12')->getValue())->toBe('Ver Archivo')
+        ->and($hoja->getCell('H12')->getHyperlink()->getUrl())->toBe('https://tools.segurtrack.com/hrcontrol/storage/docruta/foto-900.jpg');
 });
 
 test('el export XLSX de una hoja acota a un solo detalle cuando se pide (tal cual el modal)', function () {
     $contacto = Contacto::factory()->create();
     $ruta = Ruta::factory()->create(['idruta' => 'T000910', 'placa' => 'DET-001']);
 
+    // Tramo 1: paradas 1 (inicio) y 2 (fin).
     DetalleRuta::factory()->for($contacto, 'contacto')->create([
         'ruta_idruta' => $ruta->idruta, 'orden' => 1, 'geocerca' => 'PARADA 1', 'kilometraje' => '10',
     ]);
-    $d2 = DetalleRuta::factory()->for($contacto, 'contacto')->create([
+    DetalleRuta::factory()->for($contacto, 'contacto')->create([
         'ruta_idruta' => $ruta->idruta, 'orden' => 2, 'geocerca' => 'PARADA 2', 'kilometraje' => '20',
+    ]);
+    // Tramo 2: paradas 3 (inicio) y 4 (fin) — el que el modal tiene seleccionado.
+    $d3 = DetalleRuta::factory()->for($contacto, 'contacto')->create([
+        'ruta_idruta' => $ruta->idruta, 'orden' => 3, 'geocerca' => 'PARADA 3', 'kilometraje' => '30',
+    ]);
+    DetalleRuta::factory()->for($contacto, 'contacto')->create([
+        'ruta_idruta' => $ruta->idruta, 'orden' => 4, 'geocerca' => 'PARADA 4', 'kilometraje' => '40',
     ]);
 
     $response = $this->actingAs(crearAdmin())
-        ->get(route('modulos.rutas.exportar.excel', ['hoja' => 'T000910', 'detalle' => $d2->iddetalleRuta]));
+        ->get(route('modulos.rutas.exportar.excel', ['hoja' => 'T000910', 'detalle' => $d3->iddetalleRuta]));
 
     $archivo = tempnam(sys_get_temp_dir(), 'xlsx');
     file_put_contents($archivo, $response->streamedContent());
@@ -358,7 +404,9 @@ test('el export XLSX de una hoja acota a un solo detalle cuando se pide (tal cua
         }
     }
 
-    expect($texto)->toContain('PARADA 2')->and($texto)->not->toContain('PARADA 1');
+    expect($texto)->toContain('PARADA 3', 'PARADA 4')
+        ->and($texto)->not->toContain('PARADA 1')
+        ->and($texto)->not->toContain('PARADA 2');
 });
 
 test('el export XLSX sin hoja puntual sigue usando el listado plano de siempre', function () {

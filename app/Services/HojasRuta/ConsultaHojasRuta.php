@@ -100,7 +100,17 @@ class ConsultaHojasRuta
     }
 
     /**
-     * Query base: una fila por detalle de ruta con datos de la ruta y del orden siguiente.
+     * Query base: una fila por TRAMO de la ruta (no por detalle), con datos de
+     * la ruta y del orden siguiente.
+     *
+     * Cada tramo son dos paradas consecutivas: la impar es su inicio, la par
+     * es su fin — igual que ya distingue `DetalleRutaObserver` para el estado
+     * (nace "EN RUTA", pasa a "FINALIZADO" en cuanto se registra su par). Por
+     * eso la query solo arranca de paradas impares: la parada par ya queda
+     * representada como el "final" de la fila de su propia impar (vía
+     * `$ordenSiguiente`) — listarla también como fila propia repetiría el
+     * mismo dato dos veces (como "final" de un tramo y otra vez como
+     * "inicial" de uno nuevo que en realidad no existe).
      *
      * @param  array<string, string>  $filtros
      * @return Builder<DetalleRuta>
@@ -117,6 +127,7 @@ class ConsultaHojasRuta
 
         return DetalleRuta::query()
             ->join('ruta', 'ruta.idruta', '=', 'detalleruta.ruta_idruta')
+            ->whereRaw('detalleruta.orden % 2 = 1')
             ->select([
                 'detalleruta.iddetalleRuta',
                 'detalleruta.ruta_idruta',
