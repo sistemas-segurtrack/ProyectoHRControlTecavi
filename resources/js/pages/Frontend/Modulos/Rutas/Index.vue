@@ -618,11 +618,6 @@ watch(
                                 ]"
                             >
                                 {{ item.hoja ?? '-' }}
-                                <span
-                                    class="block font-sans text-[10px] font-normal text-gray-400"
-                                >
-                                    Tramo {{ item.tramo }}
-                                </span>
                             </td>
                             <td
                                 :class="[
