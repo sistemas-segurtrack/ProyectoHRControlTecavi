@@ -137,8 +137,9 @@ const TH =
     'px-1.5 py-1.5 text-center text-xs font-semibold text-white uppercase';
 const TD = 'px-1.5 py-1.5 text-center align-middle';
 
-// Un ancho por cada una de las 11 columnas de la tabla (mismo orden que los <th>).
+// Un ancho por cada una de las 12 columnas de la tabla (mismo orden que los <th>).
 const ANCHOS_SKELETON = [
+    '4rem',
     '4rem',
     '5rem',
     '5rem',
@@ -554,6 +555,7 @@ watch(
                 <table class="w-full table-auto border-collapse text-xs">
                     <thead>
                         <tr class="border-b border-[#b51927] bg-[#b51927]">
+                            <th :class="TH">ID Hoja de Ruta</th>
                             <th :class="TH">Placa</th>
                             <th :class="TH">Conductor</th>
                             <th :class="TH">Copiloto</th>
@@ -588,7 +590,7 @@ watch(
                         </template>
 
                         <tr v-if="rutas.length === 0 && !cargando">
-                            <td colspan="11" class="px-4 py-12 text-center">
+                            <td colspan="12" class="px-4 py-12 text-center">
                                 <p class="text-sm font-medium text-gray-500">
                                     Sin resultados
                                 </p>
@@ -608,6 +610,14 @@ watch(
                             class="cursor-pointer border-b border-gray-100 bg-white transition-colors hover:bg-[#b51927]/5 dark:border-gray-800 dark:bg-gray-900 dark:hover:bg-gray-800/50"
                             @click="seleccionada = item"
                         >
+                            <td
+                                :class="[
+                                    TD,
+                                    'font-mono font-semibold text-[#b51927]',
+                                ]"
+                            >
+                                {{ item.hoja ?? '-' }}
+                            </td>
                             <td
                                 :class="[
                                     TD,
