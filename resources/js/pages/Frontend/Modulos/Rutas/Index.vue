@@ -53,6 +53,7 @@ type Documento = {
 type Hoja = {
     id: number;
     hoja: string | null;
+    tramo: number;
     placa: string | null;
     carreta: string | null;
     conductor: string | null;
@@ -617,6 +618,11 @@ watch(
                                 ]"
                             >
                                 {{ item.hoja ?? '-' }}
+                                <span
+                                    class="block font-sans text-[10px] font-normal text-gray-400"
+                                >
+                                    Tramo {{ item.tramo }}
+                                </span>
                             </td>
                             <td
                                 :class="[

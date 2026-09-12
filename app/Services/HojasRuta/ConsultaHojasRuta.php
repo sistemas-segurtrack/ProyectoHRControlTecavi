@@ -255,10 +255,16 @@ class ConsultaHojasRuta
         $idActual = (int) ($row['iddetalleRuta'] ?? 0);
         $idSiguiente = (int) ($row['sig_id'] ?? 0);
 
+        $orden = (int) ($row['orden'] ?? 1);
+
         return [
             'id' => $row['iddetalleRuta'] ?? null,
             'hoja' => $row['ruta_idruta'] ?? null,
             'orden' => $row['orden'] ?? null,
+            // Una misma hoja de ruta con varios tramos aparece en varias
+            // filas (una por tramo, ver baseQuery()) — sin esto se ve como
+            // si el "ID Hoja de Ruta" estuviera duplicado.
+            'tramo' => intdiv($orden + 1, 2),
             'placa' => $row['placa'] ?? null,
             'carreta' => $row['carreta'] ?? null,
             'conductor' => $row['piloto'] ?? null,

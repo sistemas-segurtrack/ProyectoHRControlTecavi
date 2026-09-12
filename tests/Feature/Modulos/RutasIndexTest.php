@@ -129,6 +129,12 @@ test('una parada par no aparece como fila propia (ya es el final de su impar)', 
         ->assertInertia(fn (Assert $page) => $page
             // Dos tramos: (1,2) y (3, sin cerrar) — no tres filas.
             ->has('rutas', 2)
+            // Mismo "ID Hoja de Ruta" en ambas filas — el número de tramo es
+            // lo que distingue que no es un duplicado.
+            ->where('rutas.0.hoja', $ruta->idruta)
+            ->where('rutas.0.tramo', 2)
+            ->where('rutas.1.hoja', $ruta->idruta)
+            ->where('rutas.1.tramo', 1)
         );
 });
 
