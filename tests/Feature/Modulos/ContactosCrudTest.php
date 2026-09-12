@@ -2,6 +2,7 @@
 
 use App\Models\HRControl\Contacto;
 use App\Models\User;
+use App\Models\WialonSTK\WialonGeocerca;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('un usuario sin rol admin no puede entrar al CRUD', function () {
@@ -18,7 +19,18 @@ test('el admin ve el listado de contactos', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('Frontend/Modulos/Contactos/Index')
-            ->has('contactos.data', 3)
+            ->has('contactos', 3)
+        );
+});
+
+test('el listado manda las geocercas reales de Tecavi para el combo del formulario', function () {
+    WialonGeocerca::create(['wialon_geocerca_id' => 1, 'recurso' => 'TECAVI', 'nombre' => 'PLANTA LIMA']);
+    WialonGeocerca::create(['wialon_geocerca_id' => 2, 'recurso' => 'TECAVI', 'nombre' => 'GRANJA 675']);
+
+    $this->actingAs(crearAdmin())
+        ->get(route('modulos.contactos.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('opciones.geocercas', ['GRANJA 675', 'PLANTA LIMA'])
         );
 });
 

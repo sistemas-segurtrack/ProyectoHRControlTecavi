@@ -1,8 +1,17 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { Pencil, Plus, Trash2 } from '@lucide/vue';
-import { reactive, ref, watch } from 'vue';
+import {
+    ChevronLeft,
+    ChevronRight,
+    ChevronsLeft,
+    ChevronsRight,
+    Pencil,
+    Plus,
+    Trash2,
+} from '@lucide/vue';
+import { computed, reactive, ref, watch } from 'vue';
 import CamposMultiples from '@/components/CamposMultiples.vue';
+import ComboFilter from '@/components/ComboFilter.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,19 +33,21 @@ type Contacto = {
     telefonos: string[] | null;
 };
 
-type PaginationLink = { url: string | null; label: string; active: boolean };
-
-type Paginador = {
-    data: Contacto[];
-    links: PaginationLink[];
-    from: number | null;
-    to: number | null;
+type PaginaMeta = {
+    actual: number;
     total: number;
+    porPagina: number;
+    totalRegistros: number;
 };
 
 const props = defineProps<{
-    contactos: Paginador;
+    contactos: Contacto[];
+    paginaMeta: PaginaMeta;
     filtros: { buscar: string };
+    opciones: {
+        porPagina: number[];
+        geocercas: string[];
+    };
 }>();
 
 defineOptions({
@@ -51,19 +62,54 @@ const TH =
     'px-3 py-2 text-left text-xs font-semibold tracking-wide text-white uppercase';
 const TD = 'px-3 py-2 whitespace-nowrap text-gray-700 dark:text-gray-200';
 
+const cargando = ref(false);
 const buscar = ref(props.filtros.buscar);
-let debounce: ReturnType<typeof setTimeout> | null = null;
+const filasPorPagina = ref(props.paginaMeta.porPagina);
 
-watch(buscar, (valor) => {
-    if (debounce) {
-        clearTimeout(debounce);
-    }
+const resumenFilas = computed(() => {
+    const { totalRegistros, actual, porPagina } = props.paginaMeta;
+    if (totalRegistros === 0) return '0 resultados';
+    const ini = (actual - 1) * porPagina + 1;
+    const fin = Math.min(actual * porPagina, totalRegistros);
+    return `${ini}–${fin} de ${totalRegistros.toLocaleString()}`;
+});
+
+const paginasVisibles = computed((): (number | '...')[] => {
+    const { actual, total } = props.paginaMeta;
+    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+    if (actual <= 4) return [1, 2, 3, 4, 5, '...', total];
+    if (actual >= total - 3)
+        return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
+    return [1, '...', actual - 1, actual, actual + 1, '...', total];
+});
+
+function query(pagina: number): Record<string, string | number> {
+    return {
+        buscar: buscar.value,
+        porPagina: filasPorPagina.value,
+        page: pagina,
+    };
+}
+
+function recargar(pagina: number): void {
+    cargando.value = true;
+    router.get(contactosRoutes.index.url(), query(pagina), {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+        only: ['contactos', 'paginaMeta', 'filtros'],
+        onFinish: () => {
+            cargando.value = false;
+        },
+    });
+}
+
+let debounce: ReturnType<typeof setTimeout> | null = null;
+watch([buscar, filasPorPagina], () => {
+    if (debounce) clearTimeout(debounce);
     debounce = setTimeout(() => {
-        router.get(
-            contactosRoutes.index.url(),
-            { buscar: valor },
-            { preserveState: true, preserveScroll: true, replace: true },
-        );
+        debounce = null;
+        recargar(1);
     }, 350);
 });
 
@@ -176,7 +222,7 @@ function eliminar(): void {
                     </thead>
                     <tbody>
                         <tr
-                            v-for="contacto in contactos.data"
+                            v-for="contacto in contactos"
                             :key="contacto.id"
                             class="border-b border-gray-100 odd:bg-white even:bg-gray-50/60 dark:border-gray-800 dark:odd:bg-gray-900 dark:even:bg-gray-800/40"
                         >
@@ -238,7 +284,7 @@ function eliminar(): void {
                                 </div>
                             </td>
                         </tr>
-                        <tr v-if="contactos.data.length === 0">
+                        <tr v-if="contactos.length === 0">
                             <td
                                 colspan="5"
                                 class="px-4 py-10 text-center text-sm text-gray-400"
@@ -250,43 +296,93 @@ function eliminar(): void {
                 </table>
             </div>
 
+            <!-- Paginación (mismo estilo que Rutas) -->
             <div
-                class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                class="grid grid-cols-2 items-center gap-x-2 gap-y-1.5 border-t border-gray-200 bg-gray-50 px-4 py-2.5 sm:grid-cols-3 sm:gap-2 dark:border-gray-700 dark:bg-gray-800"
             >
-                <span>
-                    {{ contactos.from ?? 0 }}–{{ contactos.to ?? 0 }} de
-                    {{ contactos.total.toLocaleString() }}
-                </span>
-                <div class="flex flex-wrap gap-1">
-                    <button
-                        v-for="link in contactos.links"
-                        :key="link.label"
-                        type="button"
-                        :disabled="!link.url"
-                        class="min-w-8 rounded-md border px-2 py-1 transition disabled:opacity-40"
-                        :class="
-                            link.active
-                                ? 'border-[#b51927] bg-[#b51927] text-white'
-                                : 'border-gray-300 bg-white hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-900 dark:hover:bg-gray-700'
-                        "
-                        @click="
-                            link.url &&
-                            router.get(
-                                link.url,
-                                {},
-                                { preserveState: true, preserveScroll: true },
-                            )
-                        "
+                <div class="order-2 flex items-center gap-2 sm:order-1">
+                    <label class="text-sm text-gray-500">Filas:</label>
+                    <select
+                        v-model.number="filasPorPagina"
+                        class="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
                     >
-                        {{
-                            link.label
-                                .replace(/<[^>]*>/g, '')
-                                .replace(/&laquo;/g, '«')
-                                .replace(/&raquo;/g, '»')
-                                .trim()
-                        }}
+                        <option
+                            v-for="n in opciones.porPagina"
+                            :key="n"
+                            :value="n"
+                        >
+                            {{ n }}
+                        </option>
+                    </select>
+                </div>
+                <div
+                    class="order-1 col-span-2 flex items-center justify-center gap-1 sm:order-2 sm:col-span-1"
+                >
+                    <button
+                        class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white p-1.5 transition hover:bg-gray-100 disabled:opacity-40 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                        :disabled="paginaMeta.actual <= 1 || cargando"
+                        title="Primera página"
+                        @click="recargar(1)"
+                    >
+                        <ChevronsLeft class="h-4 w-4" />
+                    </button>
+                    <button
+                        class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white p-1.5 transition hover:bg-gray-100 disabled:opacity-40 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                        :disabled="paginaMeta.actual <= 1 || cargando"
+                        title="Página anterior"
+                        @click="recargar(paginaMeta.actual - 1)"
+                    >
+                        <ChevronLeft class="h-4 w-4" />
+                    </button>
+
+                    <template
+                        v-for="(p, i) in paginasVisibles"
+                        :key="p === '...' ? `e${i}` : p"
+                    >
+                        <span
+                            v-if="p === '...'"
+                            class="px-1 text-sm text-gray-400"
+                            >…</span
+                        >
+                        <button
+                            v-else
+                            class="inline-flex h-7 min-w-[28px] items-center justify-center rounded-md border px-1.5 text-sm transition"
+                            :class="
+                                p === paginaMeta.actual
+                                    ? 'border-[#b51927] bg-[#b51927] font-semibold text-white'
+                                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                            "
+                            :disabled="cargando"
+                            @click="recargar(p as number)"
+                        >
+                            {{ p }}
+                        </button>
+                    </template>
+
+                    <button
+                        class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white p-1.5 transition hover:bg-gray-100 disabled:opacity-40 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                        :disabled="
+                            paginaMeta.actual >= paginaMeta.total || cargando
+                        "
+                        title="Página siguiente"
+                        @click="recargar(paginaMeta.actual + 1)"
+                    >
+                        <ChevronRight class="h-4 w-4" />
+                    </button>
+                    <button
+                        class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white p-1.5 transition hover:bg-gray-100 disabled:opacity-40 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                        :disabled="
+                            paginaMeta.actual >= paginaMeta.total || cargando
+                        "
+                        title="Última página"
+                        @click="recargar(paginaMeta.total)"
+                    >
+                        <ChevronsRight class="h-4 w-4" />
                     </button>
                 </div>
+                <p class="order-3 text-right text-sm text-gray-500">
+                    {{ resumenFilas }}
+                </p>
             </div>
         </div>
     </div>
@@ -309,8 +405,12 @@ function eliminar(): void {
                     <InputError :message="form.errors.nombre" />
                 </div>
                 <div class="grid gap-1.5">
-                    <Label for="geocerca">Geocerca</Label>
-                    <Input id="geocerca" v-model="form.geocerca" required />
+                    <Label>Geocerca</Label>
+                    <ComboFilter
+                        v-model="form.geocerca"
+                        :options="opciones.geocercas"
+                        placeholder="Selecciona o escribe una geocerca"
+                    />
                     <InputError :message="form.errors.geocerca" />
                 </div>
                 <div class="grid gap-1.5">
