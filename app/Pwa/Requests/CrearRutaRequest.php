@@ -5,13 +5,16 @@ namespace App\Pwa\Requests;
 use App\Pwa\Requests\Concerns\ConDocumentoAdjunto;
 use App\Pwa\Requests\Concerns\ValidaDocumentoAdjunto;
 use App\Pwa\Requests\Concerns\ValidaKilometraje;
+use App\Pwa\Requests\Concerns\ValidaUnidadDisponible;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class CrearRutaRequest extends FormRequest implements ConDocumentoAdjunto
 {
     use ValidaDocumentoAdjunto;
     use ValidaKilometraje;
+    use ValidaUnidadDisponible;
 
     /**
      * @return array<string, ValidationRule|array<mixed>|string>
@@ -34,5 +37,12 @@ class CrearRutaRequest extends FormRequest implements ConDocumentoAdjunto
             'observacion' => ['nullable', 'string', 'max:500'],
             ...$this->reglasDocumento(),
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $this->validarUnidadDisponible($validator, $this->input('placa'));
+        });
     }
 }

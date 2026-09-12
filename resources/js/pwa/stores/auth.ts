@@ -22,6 +22,10 @@ export type Catalogos = {
     // Contador de Wialon por placa, para validar el kilometraje al instante
     // (ver `resources/js/pwa/lib/kilometraje.ts`).
     kilometrajes: Record<string, number>;
+    // Placa -> idruta de la hoja con un tramo abierto (EN RUTA) ahora mismo,
+    // sin importar el conductor que la inició. "Nueva Ruta" la usa para
+    // avisar al elegir la unidad que ya está en curso.
+    unidades_en_ruta: Record<string, string>;
     carretas: string[];
     geocercas: string[];
     copilotos: string[];
@@ -89,6 +93,7 @@ const LS = 'pwa_conductor';
 const CATALOGOS_VACIOS: Catalogos = {
     placas: [],
     kilometrajes: {},
+    unidades_en_ruta: {},
     carretas: [],
     geocercas: [],
     copilotos: [],

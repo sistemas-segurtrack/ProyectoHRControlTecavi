@@ -31,6 +31,16 @@ trait ResuelveCatalogos
                 ->whereNotNull('placa')->where('placa', '!=', '')
                 ->whereNotNull('contador_kilometraje_km')
                 ->pluck('contador_kilometraje_km', 'placa'),
+            // Unidades con un tramo abierto (EN RUTA) ahora mismo, sin importar
+            // qué conductor lo inició: "Nueva Ruta" la usa para avisar al
+            // instante, al elegir la placa, que esa unidad ya está en curso
+            // (hay que continuarla/finalizarla) en vez de dejar crear una hoja
+            // nueva desde cero encima.
+            'unidades_en_ruta' => DetalleRuta::query()
+                ->join('ruta', 'ruta.idruta', '=', 'detalleruta.ruta_idruta')
+                ->where('detalleruta.estado', DetalleRuta::EN_RUTA)
+                ->whereNotNull('ruta.placa')
+                ->pluck('ruta.idruta', 'ruta.placa'),
             'carretas' => WialonCarreta::query()->orderBy('nombre')->pluck('nombre')->unique()->values(),
             'geocercas' => WialonGeocerca::query()->orderBy('nombre')->pluck('nombre')->unique()->values(),
             'copilotos' => WialonConductor::query()

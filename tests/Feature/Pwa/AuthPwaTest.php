@@ -27,6 +27,18 @@ test('login válido devuelve token, conductor y catálogos', function () {
     expect($c->tokens()->count())->toBe(1);
 });
 
+test('login manda unidades_en_ruta con las placas que tienen un tramo abierto', function () {
+    conductorPwa('9A000042', '123456');
+    $otro = conductorPwa('9A000099', 'x');
+    Sanctum::actingAs($otro, ['*']);
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'TEI838', 'kilometraje' => '100'])
+        ->assertCreated()->json('data.idruta');
+
+    $this->postJson('/api/pwa/login', ['codigo' => '9A000042', 'password' => '123456'])
+        ->assertOk()
+        ->assertJsonPath('catalogos.unidades_en_ruta.TEI838', $idruta);
+});
+
 test('login con contraseña incorrecta devuelve 422', function () {
     conductorPwa('9A000042', '123456');
 

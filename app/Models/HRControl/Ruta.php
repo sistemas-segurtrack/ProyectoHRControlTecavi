@@ -76,4 +76,17 @@ class Ruta extends Model
 
         return 'T'.str_pad((string) $n, 6, '0', STR_PAD_LEFT);
     }
+
+    /**
+     * ID de la hoja de ruta con un tramo abierto (EN RUTA) para esta placa
+     * ahora mismo, sin importar qué conductor la inició, o `null` si la
+     * unidad está libre para empezar una hoja desde cero.
+     */
+    public static function idEnRutaPorPlaca(string $placa): ?string
+    {
+        return static::query()
+            ->where('placa', $placa)
+            ->whereHas('detalles', fn ($q) => $q->where('estado', DetalleRuta::EN_RUTA))
+            ->value('idruta');
+    }
 }

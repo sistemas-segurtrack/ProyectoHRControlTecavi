@@ -106,6 +106,40 @@ test('no deja crear una segunda ruta si ya hay una en curso', function () {
     $this->postJson('/api/pwa/rutas', ['placa' => 'BBB-222', 'kilometraje' => '100'])->assertStatus(409);
 });
 
+test('no deja crear una ruta sobre una unidad que ya tiene un tramo en curso con otro conductor', function () {
+    Sanctum::actingAs(conductorPwa('11111111'), ['*']);
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])
+        ->assertCreated()->json('data.idruta');
+
+    Sanctum::actingAs(conductorPwa('22222222'), ['*']);
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '500'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors([
+            'placa' => "La unidad AAA-111 ya tiene una hoja de ruta en curso ({$idruta}). Continúala o finalízala antes de iniciar una nueva.",
+        ]);
+});
+
+test('la unidad vuelve a estar libre una vez que su hoja de ruta finaliza', function () {
+    Storage::fake('public');
+    $tipo = TipoDocumento::create(['nombre' => 'GUIA', 'condicionaFin' => '1']);
+
+    Sanctum::actingAs(conductorPwa('11111111'), ['*']);
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])
+        ->assertCreated()->json('data.idruta');
+    $this->post("/api/pwa/rutas/{$idruta}/ordenes", [
+        'kilometraje' => '150',
+        'adjuntar' => '1',
+        'documento' => [
+            'tipo_documento_id' => $tipo->idtipoDocumento,
+            'documento' => 'GR-1',
+            'imagen' => UploadedFile::fake()->image('guia.jpg'),
+        ],
+    ])->assertCreated()->assertJsonPath('data.estado', Ruta::FINALIZADA);
+
+    Sanctum::actingAs(conductorPwa('22222222'), ['*']);
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '500'])->assertCreated();
+});
+
 test('el Idempotency-Key reproduce la respuesta sin crear otra ruta', function () {
     Sanctum::actingAs(conductorPwa(), ['*']);
 

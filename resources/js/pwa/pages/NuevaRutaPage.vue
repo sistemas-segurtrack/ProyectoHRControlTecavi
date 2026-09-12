@@ -42,6 +42,15 @@ const errorKm = computed(() =>
     errorKilometraje(form.value.kilometraje, referenciaKm.value),
 );
 
+// Al elegir la placa se detecta al instante (con el catálogo ya cacheado,
+// sin esperar al servidor) si esa unidad ya tiene un tramo abierto con
+// OTRO conductor: no se puede crear una hoja desde cero encima, hay que
+// continuarla o finalizarla primero. El servidor valida lo mismo por si
+// las dudas (`CrearRutaRequest`).
+const idRutaEnCurso = computed(
+    () => state.catalogos.unidades_en_ruta?.[form.value.placa.trim()] ?? null,
+);
+
 function cuerpo(): FormData | Record<string, string | null> {
     const base = {
         placa: form.value.placa.trim(),
@@ -67,6 +76,10 @@ function cuerpo(): FormData | Record<string, string | null> {
 }
 
 async function iniciar(): Promise<void> {
+    if (idRutaEnCurso.value) {
+        error.value = `Esta unidad ya tiene una hoja de ruta en curso (${idRutaEnCurso.value}). Continúala o finalízala antes de iniciar una nueva.`;
+        return;
+    }
     if (adjunto.value && !adjunto.value.listo) {
         error.value =
             'Completa el tipo, el código y la foto del documento adjunto.';
@@ -134,13 +147,23 @@ async function iniciar(): Promise<void> {
         </header>
 
         <form class="flex flex-1 flex-col gap-4" @submit.prevent="iniciar">
-            <CampoCombo
-                v-model="form.placa"
-                label="Placa"
-                :options="state.catalogos.placas"
-                placeholder="Selecciona la unidad"
-                required
-            />
+            <div class="flex flex-col gap-1">
+                <CampoCombo
+                    v-model="form.placa"
+                    label="Placa"
+                    :options="state.catalogos.placas"
+                    placeholder="Selecciona la unidad"
+                    required
+                />
+                <p
+                    v-if="idRutaEnCurso"
+                    class="text-xs text-rose-600 dark:text-rose-400"
+                >
+                    Esta unidad ya tiene una hoja de ruta en curso
+                    ({{ idRutaEnCurso }}). Continúala o finalízala antes de
+                    iniciar una nueva.
+                </p>
+            </div>
             <CampoCombo
                 v-model="form.copiloto"
                 label="Copiloto"
@@ -211,7 +234,7 @@ async function iniciar(): Promise<void> {
                 </p>
                 <button
                     type="submit"
-                    :disabled="cargando || !!errorKm"
+                    :disabled="cargando || !!errorKm || !!idRutaEnCurso"
                     class="h-14 w-full rounded-xl bg-[#b51927] text-lg font-bold text-white transition active:scale-[.98] disabled:opacity-60"
                 >
                     {{ cargando ? 'Iniciando…' : 'Iniciar ruta' }}
