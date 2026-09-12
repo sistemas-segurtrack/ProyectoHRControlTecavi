@@ -4,6 +4,18 @@ import { computed, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue';
 import { useAuth } from '../stores/auth';
 import CampoTexto from './CampoTexto.vue';
 
+const props = withDefaults(
+    defineProps<{
+        /** Al cerrar un tramo (parada par: 2, 4, 6…) un documento que
+         *  finaliza toda la hoja (p. ej. RECIBO COMBUSTIBLE) no tiene
+         *  sentido — dejaría la hoja "incompleta" a mitad de tramo. Se
+         *  excluye ese tipo del combo; el resto del formulario ("Adjuntar")
+         *  sigue disponible igual. */
+        ocultarFinalizadores?: boolean;
+    }>(),
+    { ocultarFinalizadores: false },
+);
+
 const { state } = useAuth();
 
 const activo = ref(false);
@@ -31,9 +43,17 @@ function camposVacios() {
     };
 }
 
+/** Opciones del combo: todo el catálogo, salvo los que finalizan la hoja
+ *  (`condiciona_fin`) cuando este avance cierra un tramo. */
+const tiposDisponibles = computed(() =>
+    props.ocultarFinalizadores
+        ? state.catalogos.tipos_documento.filter((t) => !t.condiciona_fin)
+        : state.catalogos.tipos_documento,
+);
+
 /** Tipo "GUIA" del catálogo: es el que queda preseleccionado por defecto. */
 const tipoPorDefecto = computed(() =>
-    state.catalogos.tipos_documento.find(
+    tiposDisponibles.value.find(
         (t) => (t.nombre ?? '').trim().toUpperCase() === 'GUIA',
     ),
 );
@@ -45,8 +65,21 @@ function aplicarDefecto(): void {
 }
 watch(tipoPorDefecto, aplicarDefecto, { immediate: true });
 
+// Si el tipo elegido deja de estar disponible (p. ej. al entrar a un tramo
+// que cierra), se limpia la selección en vez de dejar un id "fantasma" que
+// ya no aparece en el combo.
+watch(tiposDisponibles, (lista) => {
+    if (
+        campos.value.tipo_documento_id !== '' &&
+        !lista.some((t) => String(t.id) === campos.value.tipo_documento_id)
+    ) {
+        campos.value.tipo_documento_id = '';
+        aplicarDefecto();
+    }
+});
+
 const tipoElegido = computed(() =>
-    state.catalogos.tipos_documento.find(
+    tiposDisponibles.value.find(
         (t) => String(t.id) === campos.value.tipo_documento_id,
     ),
 );
@@ -208,7 +241,7 @@ defineExpose({ activo, listo, finalizara, anexar, reset });
                 >
                     <option value="">Selecciona…</option>
                     <option
-                        v-for="t in state.catalogos.tipos_documento"
+                        v-for="t in tiposDisponibles"
                         :key="t.id"
                         :value="String(t.id)"
                     >
