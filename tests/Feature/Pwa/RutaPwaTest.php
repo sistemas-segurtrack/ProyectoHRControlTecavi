@@ -299,7 +299,11 @@ test('login expone el catálogo de tipos de documento con su condicionaFin', fun
         ->assertJsonPath('catalogos.tipos_documento.1.condiciona_fin', false);
 });
 
-test('no deja crear una ruta con kilometraje menor al contador de Wialon', function () {
+test('crear una ruta no valida el kilometraje contra el contador de Wialon', function () {
+    // El contador de Wialon se sincroniza cada minuto y puede estar
+    // desactualizado -- rechazar de arranque un kilometraje real por eso
+    // bloqueaba al conductor sin motivo. Esa validación solo aplica dentro
+    // de la misma ruta (ver "Continuar"), no al iniciar una hoja nueva.
     WialonUnidad::create([
         'wialon_unidad_id' => 555,
         'placa' => 'AAA-111',
@@ -309,8 +313,7 @@ test('no deja crear una ruta con kilometraje menor al contador de Wialon', funct
     Sanctum::actingAs(conductorPwa(), ['*']);
 
     $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '4999'])
-        ->assertStatus(422)
-        ->assertJsonValidationErrors(['kilometraje' => 'El kilometraje no puede ser menor al último registrado (5000 km).']);
+        ->assertCreated();
 });
 
 test('deja crear una ruta con kilometraje igual o mayor al contador de Wialon', function () {

@@ -31,8 +31,12 @@ const cargando = ref(false);
 const error = ref('');
 const idempotencyKey = uuid();
 
+// Al iniciar una hoja de ruta no se compara contra el contador de Wialon
+// (puede estar desactualizado y rechazar de arranque un kilometraje real
+// válido) — por eso no se le pasa la placa, igual que ya no lo hace el
+// servidor (CrearRutaRequest).
 const referenciaKm = computed(() =>
-    referenciaKilometraje(state.catalogos, form.value.placa || null),
+    referenciaKilometraje(state.catalogos, null),
 );
 const errorKm = computed(() =>
     errorKilometraje(form.value.kilometraje, referenciaKm.value),
