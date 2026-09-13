@@ -40,6 +40,10 @@ class HandleInertiaRequests extends Middleware
             'name' => config('app.name'),
             'auth' => [
                 'user' => $request->user(),
+                // La cuenta compartida "tecavi" (rol "usuario") no debe ver su
+                // propio nombre/correo en el sidebar (ver AppSidebar.vue) — el
+                // frontend decide eso con esta lista, no con el rol admin.
+                'roles' => $request->user()?->getRoleNames()->values() ?? [],
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];

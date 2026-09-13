@@ -8,7 +8,7 @@ test('la raiz redirige al login', function () {
     $response->assertRedirect(route('login'));
 });
 
-test('un usuario autenticado que cae en la raiz termina en el dashboard', function () {
+test('un usuario autenticado que cae en la raiz termina en rutas', function () {
     $this->actingAs(User::factory()->create())
         ->get(route('home'))
         ->assertRedirect(route('login'));
@@ -18,5 +18,5 @@ test('un usuario autenticado que cae en la raiz termina en el dashboard', functi
     // varado en el login.
     $this->actingAs(User::factory()->create())
         ->get(route('login'))
-        ->assertRedirect(route('dashboard', absolute: false));
+        ->assertRedirect('/modulos/rutas');
 });

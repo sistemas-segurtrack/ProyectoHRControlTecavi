@@ -17,7 +17,10 @@ defineOptions({
 });
 
 const page = usePage();
-const user = computed(() => page.props.auth.user);
+// Esta página vive detrás de `auth` (routes/settings.php): siempre hay
+// usuario. La cuenta compartida "tecavi" nunca llega aquí (no tiene acceso
+// a Settings, solo a /modulos/rutas).
+const user = computed(() => page.props.auth.user!);
 </script>
 
 <template>

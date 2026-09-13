@@ -43,6 +43,16 @@ return [
         'password' => env('ADMIN_PASSWORD', 'cambia-esta-clave'),
     ],
 
+    // Cuenta compartida (rol "usuario") que siembra TecaviUserSeeder: da
+    // acceso de solo lectura a /modulos/rutas sin credenciales individuales
+    // (el formulario de acceso de esa página solo pide la contraseña, el
+    // correo va fijo). Mismo criterio que 'admin' de arriba: el valor de
+    // relleno no es la contraseña real de ningún entorno.
+    'tecavi' => [
+        'email' => env('TECAVI_EMAIL', 'tecavi@segurtrack.com'),
+        'password' => env('TECAVI_PASSWORD', 'cambia-esta-clave'),
+    ],
+
     'wialon' => [
         'base_url' => env('WIALON_BASE_URL', 'https://hst-api.wialon.com'),
         'token' => trim((string) env('WIALON_STK_TOKEN', '')) ?: null,

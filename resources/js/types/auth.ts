@@ -11,7 +11,11 @@ export type User = {
 };
 
 export type Auth = {
-    user: User;
+    // `null` sin sesión: /modulos/rutas se sirve sin `auth` middleware (ver
+    // RutasController::index) y cubre el listado con un formulario de acceso
+    // en vez de redirigir a /login.
+    user: User | null;
+    roles: string[];
 };
 
 export type TwoFactorConfigContent = {

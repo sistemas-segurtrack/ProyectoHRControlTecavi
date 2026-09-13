@@ -3,10 +3,10 @@
 use App\Models\User;
 
 test('profile page is displayed as read-only', function () {
-    $user = User::factory()->create();
-
+    // /settings/* es `role:admin` -- la cuenta compartida "tecavi" (rol
+    // "usuario") no debe ver ni cambiar su configuración desde acá.
     $response = $this
-        ->actingAs($user)
+        ->actingAs(crearAdmin())
         ->get(route('profile.edit'));
 
     $response->assertOk();

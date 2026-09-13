@@ -3,7 +3,7 @@ let _filterTimer: ReturnType<typeof setTimeout> | null = null;
 </script>
 
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import {
     ChevronDown,
     ChevronLeft,
@@ -18,6 +18,7 @@ import {
     RefreshCw,
 } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
+import AccesoRutasModal from '@/components/AccesoRutasModal.vue';
 import ComboFilter from '@/components/ComboFilter.vue';
 import EstadoBadge from '@/components/EstadoBadge.vue';
 import MetricaCard from '@/components/MetricaCard.vue';
@@ -124,6 +125,9 @@ const props = defineProps<{
         porPagina: number[];
     };
     metricas: Metricas;
+    /** Sin sesión (o sin el rol adecuado): la página se cubre con el
+     *  formulario de acceso en vez de mostrar el listado real. */
+    necesitaAcceso: boolean;
 }>();
 
 defineOptions({
@@ -131,6 +135,13 @@ defineOptions({
         breadcrumbs: [{ title: 'Rutas', href: rutasRoutes.index.url() }],
     },
 });
+
+// Exportar (Excel/PDF) sigue siendo `role:admin` en el backend -- la cuenta
+// compartida "tecavi" (rol "usuario") solo ve el listado, así que ni se le
+// muestran estos botones.
+const puedeExportar = computed(() =>
+    usePage().props.auth.roles.includes('admin'),
+);
 
 // ─── Constantes de estilo ─────────────────────────────────────────────────────
 
@@ -316,6 +327,8 @@ watch(
 <template>
     <Head title="Rutas" />
 
+    <AccesoRutasModal v-if="props.necesitaAcceso" />
+
     <div class="flex h-full flex-1 flex-col gap-4 overflow-x-auto p-2 md:p-4">
         <div
             class="flex flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700"
@@ -354,7 +367,7 @@ watch(
                     </button>
                 </div>
                 <div class="flex items-center gap-2">
-                    <DropdownMenu>
+                    <DropdownMenu v-if="puedeExportar">
                         <DropdownMenuTrigger
                             class="inline-flex items-center gap-1.5 rounded-lg border border-green-300 bg-green-50 px-3 py-1.5 text-sm font-medium text-green-700 transition hover:bg-green-100 disabled:opacity-50 dark:border-green-700 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/50"
                             :disabled="exportando"
@@ -829,7 +842,7 @@ watch(
             </DialogHeader>
 
             <!-- Exportar esta hoja de ruta (al costado de la "X") -->
-            <DropdownMenu>
+            <DropdownMenu v-if="puedeExportar">
                 <DropdownMenuTrigger
                     class="absolute top-3.5 right-12 inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
                     :disabled="exportando"

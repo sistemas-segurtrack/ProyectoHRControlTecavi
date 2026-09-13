@@ -70,6 +70,25 @@ function crearAdmin(): User
 }
 
 /**
+ * Crea la cuenta compartida `tecavi@segurtrack.com` (rol "usuario", ver
+ * TecaviUserSeeder/RutasAccesoController) con una contraseña conocida.
+ */
+function crearUsuarioTecavi(string $password = 'clave-tecavi'): User
+{
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    Role::findOrCreate('usuario', 'web');
+
+    $user = User::factory()->create([
+        'email' => 'tecavi@segurtrack.com',
+        'password' => Hash::make($password),
+    ]);
+    $user->assignRole('usuario');
+
+    return $user;
+}
+
+/**
  * Crea un conductor de Wialon con contraseña conocida (para probar la PWA Conductor).
  * El login es por `codigo` (campo `c` de Wialon), no por DNI.
  */

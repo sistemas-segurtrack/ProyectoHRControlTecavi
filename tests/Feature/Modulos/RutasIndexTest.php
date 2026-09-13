@@ -12,14 +12,41 @@ use PhpOffice\PhpSpreadsheet\Reader\Xlsx as XlsxReader;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 
-test('un invitado es redirigido al login', function () {
-    $this->get(route('modulos.rutas.index'))->assertRedirect(route('login'));
+test('un invitado ve el formulario de acceso, no el listado ni un redirect', function () {
+    $this->get(route('modulos.rutas.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('necesitaAcceso', true)
+            ->where('rutas', [])
+        );
 });
 
-test('un usuario sin rol admin no puede entrar', function () {
+test('un usuario sin rol admin ni usuario tambien ve el formulario de acceso', function () {
     $this->actingAs(User::factory()->create())
         ->get(route('modulos.rutas.index'))
-        ->assertForbidden();
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('necesitaAcceso', true));
+});
+
+test('la cuenta compartida tecavi (rol usuario) ve el listado real', function () {
+    $ruta = Ruta::factory()->create(['idruta' => 'T000042', 'placa' => 'ABC-123']);
+    DetalleRuta::factory()->create(['ruta_idruta' => $ruta->idruta, 'orden' => 1]);
+
+    $this->actingAs(crearUsuarioTecavi())
+        ->get(route('modulos.rutas.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('necesitaAcceso', false)
+            ->has('rutas', 1)
+        );
+});
+
+test('la cuenta tecavi no puede exportar ni ver contactos', function () {
+    $user = crearUsuarioTecavi();
+
+    $this->actingAs($user)->get(route('modulos.rutas.exportar.excel'))->assertForbidden();
+    $this->actingAs($user)->get(route('modulos.rutas.exportar.pdf'))->assertForbidden();
+    $this->actingAs($user)->get(route('modulos.contactos.index'))->assertForbidden();
 });
 
 test('el admin ve el listado de hojas de ruta', function () {

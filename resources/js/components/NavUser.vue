@@ -18,7 +18,9 @@ import UserInfo from '@/components/UserInfo.vue';
 import UserMenuContent from '@/components/UserMenuContent.vue';
 
 const page = usePage();
-const user = computed(() => page.props.auth.user);
+// AppSidebar solo monta este componente cuando hay sesión y no es la cuenta
+// compartida "tecavi" (rol "usuario") -- siempre hay usuario acá.
+const user = computed(() => page.props.auth.user!);
 const { isMobile, state } = useSidebar();
 const settingsOpen = ref(false);
 </script>

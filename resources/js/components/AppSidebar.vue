@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import { Contact, Route } from '@lucide/vue';
+import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
@@ -17,18 +18,30 @@ import contactos from '@/routes/modulos/contactos';
 import rutas from '@/routes/modulos/rutas';
 import type { NavItem } from '@/types';
 
-const mainNavItems: NavItem[] = [
-    {
-        title: 'Rutas',
-        href: rutas.index(),
-        icon: Route,
-    },
-    {
-        title: 'Contactos',
-        href: contactos.index(),
-        icon: Contact,
-    },
-];
+const page = usePage();
+
+// La cuenta compartida "tecavi@segurtrack.com" (rol "usuario") solo tiene
+// acceso a Rutas -- Contactos ya es `role:admin` en el backend, esto solo
+// evita el clic muerto. Un visitante sin sesión (todavía en el formulario de
+// acceso de /modulos/rutas) cae en el mismo caso: sin roles.
+const esUsuarioLimitado = computed(() =>
+    page.props.auth.roles.includes('usuario'),
+);
+
+const mainNavItems = computed<NavItem[]>(() =>
+    esUsuarioLimitado.value
+        ? [{ title: 'Rutas', href: rutas.index(), icon: Route }]
+        : [
+              { title: 'Rutas', href: rutas.index(), icon: Route },
+              { title: 'Contactos', href: contactos.index(), icon: Contact },
+          ],
+);
+
+// Pedido explícito: esta cuenta no debe ver su propio nombre/correo en el
+// sidebar. Sin sesión tampoco hay nada que mostrar ahí.
+const mostrarNavUser = computed(
+    () => page.props.auth.user !== null && !esUsuarioLimitado.value,
+);
 </script>
 
 <template>
@@ -49,7 +62,7 @@ const mainNavItems: NavItem[] = [
             <NavMain :items="mainNavItems" />
         </SidebarContent>
 
-        <SidebarFooter>
+        <SidebarFooter v-if="mostrarNavUser">
             <NavUser />
         </SidebarFooter>
     </Sidebar>

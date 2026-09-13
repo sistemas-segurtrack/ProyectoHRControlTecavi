@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -30,6 +31,7 @@ class AppServiceProvider extends ServiceProvider
         $this->configureDefaults();
         $this->configureUrlGeneration();
         $this->configureInertiaUrl();
+        $this->configureGuestRedirect();
     }
 
     /**
@@ -92,6 +94,23 @@ class AppServiceProvider extends ServiceProvider
      * al hidratar con `page.url = "/"`, y la barra de direcciones "pierde" el
      * `/hrcontrol` apenas carga la página.
      */
+    /**
+     * A dónde manda el middleware `guest` (p. ej. una visita a /login ya
+     * autenticada) cuando no se indica nada más.
+     *
+     * Por defecto, `RedirectIfAuthenticated` busca una ruta nombrada
+     * "dashboard" o, si no existe, "home" — acá "home" es
+     * `Route::redirect('/', '/login')`, así que sin este override un usuario
+     * ya logueado en /login quedaría rebotando /login → / → /login sin fin
+     * ahora que la ruta "dashboard" ya no existe.
+     */
+    protected function configureGuestRedirect(): void
+    {
+        RedirectIfAuthenticated::redirectUsing(
+            fn () => config('fortify.home'),
+        );
+    }
+
     protected function configureInertiaUrl(): void
     {
         // El prefijo se relee en cada petición (no se fija una vez al boot)

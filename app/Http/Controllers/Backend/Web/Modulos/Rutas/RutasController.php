@@ -20,13 +20,32 @@ class RutasController extends Controller
      */
     private const POR_PAGINA = [10, 25, 50, 100];
 
+    /**
+     * Roles con acceso al listado real. "usuario" es la cuenta compartida
+     * `tecavi@segurtrack.com` (ver `RutasAccesoController`) — solo lectura,
+     * sin Contactos ni exportar (esos siguen siendo `role:admin`).
+     *
+     * @var list<string>
+     */
+    private const ROLES_CON_ACCESO = ['admin', 'usuario'];
+
     public function __construct(private readonly ConsultaHojasRuta $hojas) {}
 
     /**
      * Listado de hojas de ruta (datos Tecavi) con filtros, métricas y paginación.
+     *
+     * Sin sesión (o con una que no tenga el rol adecuado) esta misma ruta
+     * hace de "puerta": en vez de que el middleware `auth` redirija a
+     * /login, se sirve la página con `necesitaAcceso = true` y sin datos —
+     * el frontend cubre el listado con el formulario de acceso (solo
+     * contraseña, ver `RutasAccesoController`).
      */
     public function index(Request $request): Response
     {
+        if (! $request->user()?->hasAnyRole(self::ROLES_CON_ACCESO)) {
+            return $this->paginaSinAcceso($request);
+        }
+
         $filtros = $this->hojas->filtros($request);
 
         $porPagina = (int) $request->query('porPagina', 25);
@@ -69,6 +88,42 @@ class RutasController extends Controller
                 ])->values(),
             ],
             'metricas' => $this->metricas($filtros),
+            'necesitaAcceso' => false,
+        ]);
+    }
+
+    /**
+     * Misma página, sin datos: el frontend la cubre con el formulario de
+     * acceso (`necesitaAcceso = true`) en vez de que el visitante vea el
+     * listado real o un redirect a /login.
+     */
+    private function paginaSinAcceso(Request $request): Response
+    {
+        return Inertia::render('Frontend/Modulos/Rutas/Index', [
+            'rutas' => [],
+            'paginaMeta' => ['actual' => 1, 'total' => 1, 'porPagina' => 25, 'totalRegistros' => 0],
+            'filtros' => $this->hojas->filtros($request),
+            'opciones' => [
+                'porPagina' => self::POR_PAGINA,
+                'placas' => [],
+                'conductores' => [],
+                'geocercas' => [],
+                'estados' => collect(ConsultaHojasRuta::ESTADOS)->map(fn (string $label, string $value) => [
+                    'value' => $value,
+                    'label' => $label,
+                ])->values(),
+            ],
+            'metricas' => [
+                'total' => 0,
+                'enRuta' => 0,
+                'finalizadas' => 0,
+                'hoy' => 0,
+                'totalUnidades' => [],
+                'enRutaUnidades' => [],
+                'finalizadasUnidades' => [],
+                'hoyUnidades' => [],
+            ],
+            'necesitaAcceso' => true,
         ]);
     }
 
