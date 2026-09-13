@@ -41,12 +41,12 @@ test('la cuenta compartida tecavi (rol usuario) ve el listado real', function ()
         );
 });
 
-test('la cuenta tecavi no puede exportar ni ver contactos', function () {
+test('la cuenta tecavi no puede exportar, pero si ve contactos', function () {
     $user = crearUsuarioTecavi();
 
     $this->actingAs($user)->get(route('modulos.rutas.exportar.excel'))->assertForbidden();
     $this->actingAs($user)->get(route('modulos.rutas.exportar.pdf'))->assertForbidden();
-    $this->actingAs($user)->get(route('modulos.contactos.index'))->assertForbidden();
+    $this->actingAs($user)->get(route('modulos.contactos.index'))->assertOk();
 });
 
 test('el admin ve el listado de hojas de ruta', function () {

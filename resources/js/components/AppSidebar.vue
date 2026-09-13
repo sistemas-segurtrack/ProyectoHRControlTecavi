@@ -20,22 +20,17 @@ import type { NavItem } from '@/types';
 
 const page = usePage();
 
-// La cuenta compartida "tecavi@segurtrack.com" (rol "usuario") solo tiene
-// acceso a Rutas -- Contactos ya es `role:admin` en el backend, esto solo
-// evita el clic muerto. Un visitante sin sesión (todavía en el formulario de
-// acceso de /modulos/rutas) cae en el mismo caso: sin roles.
+// La cuenta compartida "tecavi@segurtrack.com" (rol "usuario") ve Rutas y
+// Contactos igual que el admin (ambas `role:admin,usuario` en el backend) --
+// solo se le oculta su propio nombre en el footer, más abajo.
 const esUsuarioLimitado = computed(() =>
     page.props.auth.roles.includes('usuario'),
 );
 
-const mainNavItems = computed<NavItem[]>(() =>
-    esUsuarioLimitado.value
-        ? [{ title: 'Rutas', href: rutas.index(), icon: Route }]
-        : [
-              { title: 'Rutas', href: rutas.index(), icon: Route },
-              { title: 'Contactos', href: contactos.index(), icon: Contact },
-          ],
-);
+const mainNavItems: NavItem[] = [
+    { title: 'Rutas', href: rutas.index(), icon: Route },
+    { title: 'Contactos', href: contactos.index(), icon: Contact },
+];
 
 // Pedido explícito: esta cuenta no debe ver su propio nombre/correo en el
 // sidebar. Sin sesión tampoco hay nada que mostrar ahí.

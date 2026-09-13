@@ -5,10 +5,16 @@ use App\Models\User;
 use App\Models\WialonSTK\WialonGeocerca;
 use Inertia\Testing\AssertableInertia as Assert;
 
-test('un usuario sin rol admin no puede entrar al CRUD', function () {
+test('un usuario sin rol admin ni usuario no puede entrar al CRUD', function () {
     $this->actingAs(User::factory()->create())
         ->get(route('modulos.contactos.index'))
         ->assertForbidden();
+});
+
+test('la cuenta compartida tecavi (rol usuario) tambien puede gestionar contactos', function () {
+    $this->actingAs(crearUsuarioTecavi())
+        ->get(route('modulos.contactos.index'))
+        ->assertOk();
 });
 
 test('el admin ve el listado de contactos', function () {
