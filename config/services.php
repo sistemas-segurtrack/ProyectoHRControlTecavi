@@ -53,6 +53,16 @@ return [
         'password' => env('TECAVI_PASSWORD', 'cambia-esta-clave'),
     ],
 
+    // Aviso por WhatsApp de "hoja de ruta creada/finalizada" (mismo momento
+    // que ya avisa por correo, ver App\Listeners\EnviarWhatsapp*). Servicio
+    // interno de Segurtrack, sin autenticación propia -- `habilitado` es un
+    // apagador de emergencia sin necesitar redeploy si el servicio de
+    // WhatsApp da problemas.
+    'whatsapp' => [
+        'url' => env('WHATSAPP_API_URL', 'https://services.segurtrack.com/api/v1/whatsapp/enviar'),
+        'habilitado' => (bool) env('WHATSAPP_HABILITADO', true),
+    ],
+
     'wialon' => [
         'base_url' => env('WIALON_BASE_URL', 'https://hst-api.wialon.com'),
         'token' => trim((string) env('WIALON_STK_TOKEN', '')) ?: null,

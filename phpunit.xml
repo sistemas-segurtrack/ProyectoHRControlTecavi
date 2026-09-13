@@ -28,6 +28,12 @@
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
+        <!-- Apagado por defecto: sin esto, cualquier test que cree una ruta
+             con un Contacto (los `telefonos` de ContactoFactory son 9 dígitos
+             reales) dispara una petición HTTP real al servicio de WhatsApp
+             de Segurtrack salvo que ya use Http::fake(). Los tests que sí
+             prueban el envío lo habilitan ellos mismos con config(). -->
+        <env name="WHATSAPP_HABILITADO" value="false"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>

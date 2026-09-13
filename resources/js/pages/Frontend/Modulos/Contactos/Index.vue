@@ -144,6 +144,28 @@ function abrirEditar(contacto: Contacto): void {
     dialogAbierto.value = true;
 }
 
+/**
+ * El teléfono se guarda SOLO en formato local (9 dígitos, sin `+51`) — es el
+ * que espera la API de WhatsApp que avisa cuando una hoja de ruta se crea o
+ * finaliza (le antepone el `51` ella misma). Si pegan un número con el
+ * prefijo del país (11 dígitos empezando en 51) se lo recorta en vez de
+ * rechazarlo; cualquier otro no-dígito se descarta al escribir.
+ */
+function normalizarTelefono(valor: string): string {
+    let digitos = valor.replace(/\D/g, '');
+    if (digitos.length === 11 && digitos.startsWith('51')) {
+        digitos = digitos.slice(2);
+    }
+    return digitos.slice(0, 9);
+}
+
+const telefonosNormalizados = computed<string[]>({
+    get: () => form.telefonos,
+    set: (valores) => {
+        form.telefonos = valores.map(normalizarTelefono);
+    },
+});
+
 /** Errores de validación por item (`correo.0`, `telefonos.1`, …). */
 function erroresLista(campo: 'correo' | 'telefonos'): string[] {
     const errores = form.errors as Record<string, string>;
@@ -430,10 +452,11 @@ function eliminar(): void {
                 </div>
                 <div class="grid gap-1.5">
                     <CamposMultiples
-                        v-model="form.telefonos"
+                        v-model="telefonosNormalizados"
                         label="Teléfonos"
                         type="tel"
-                        placeholder="999888777"
+                        inputmode="numeric"
+                        placeholder="999888777 (9 dígitos, sin +51)"
                         add-label="Agregar teléfono"
                     />
                     <InputError :message="form.errors.telefonos" />

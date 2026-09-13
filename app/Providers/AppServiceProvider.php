@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Services\Whatsapp\WhatsappService;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
 use Illuminate\Http\Request;
@@ -20,7 +21,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(WhatsappService::class, function ($app): WhatsappService {
+            /** @var array<string, mixed> $cfg */
+            $cfg = $app['config']->get('services.whatsapp', []);
+
+            return new WhatsappService(
+                url: (string) ($cfg['url'] ?? ''),
+                habilitado: (bool) ($cfg['habilitado'] ?? false),
+            );
+        });
     }
 
     /**
@@ -84,17 +93,6 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Antepone el subpath de `APP_URL` (p. ej. `/hrcontrol`) a la `url` que
-     * Inertia comparte en cada página.
-     *
-     * `Inertia\Response::getUrl()` la arma con `$request->fullUrl()`, que lee
-     * directo de la petición ya recortada por el `ProxyPass` de Apache — no
-     * pasa por `route()`/`url()`, así que `forceRootUrl()` no lo alcanza. Sin
-     * esto, el cliente de Inertia hace `history.replaceState(..., page.url)`
-     * al hidratar con `page.url = "/"`, y la barra de direcciones "pierde" el
-     * `/hrcontrol` apenas carga la página.
-     */
-    /**
      * A dónde manda el middleware `guest` (p. ej. una visita a /login ya
      * autenticada) cuando no se indica nada más.
      *
@@ -111,6 +109,17 @@ class AppServiceProvider extends ServiceProvider
         );
     }
 
+    /**
+     * Antepone el subpath de `APP_URL` (p. ej. `/hrcontrol`) a la `url` que
+     * Inertia comparte en cada página.
+     *
+     * `Inertia\Response::getUrl()` la arma con `$request->fullUrl()`, que lee
+     * directo de la petición ya recortada por el `ProxyPass` de Apache — no
+     * pasa por `route()`/`url()`, así que `forceRootUrl()` no lo alcanza. Sin
+     * esto, el cliente de Inertia hace `history.replaceState(..., page.url)`
+     * al hidratar con `page.url = "/"`, y la barra de direcciones "pierde" el
+     * `/hrcontrol` apenas carga la página.
+     */
     protected function configureInertiaUrl(): void
     {
         // El prefijo se relee en cada petición (no se fija una vez al boot)

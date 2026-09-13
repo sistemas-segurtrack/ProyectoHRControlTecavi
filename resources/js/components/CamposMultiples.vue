@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Plus, X } from '@lucide/vue';
+import type { HTMLAttributes } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +11,8 @@ const props = withDefaults(
         type?: string;
         placeholder?: string;
         addLabel?: string;
+        inputmode?: HTMLAttributes['inputmode'];
+        maxlength?: number;
     }>(),
     { type: 'text', addLabel: 'Agregar' },
 );
@@ -43,6 +46,8 @@ function actualizar(indice: number, valor: string): void {
             <Input
                 :type="props.type"
                 :placeholder="props.placeholder"
+                :inputmode="props.inputmode"
+                :maxlength="props.maxlength"
                 :model-value="item"
                 @update:model-value="actualizar(i, String($event))"
             />

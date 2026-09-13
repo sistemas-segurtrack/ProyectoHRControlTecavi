@@ -55,6 +55,30 @@ test('el admin puede crear un contacto con varios correos y teléfonos', functio
     ]);
 });
 
+test('un teléfono con el prefijo +51 se guarda solo en formato local de 9 dígitos', function () {
+    $this->actingAs(crearAdmin())
+        ->post(route('modulos.contactos.store'), [
+            'geocerca' => 'PLANTA LIMA',
+            'nombre' => 'Con prefijo',
+            'telefonos' => ['+51 924 506 649', '51924506650'],
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect(Contacto::firstWhere('nombre', 'Con prefijo')->telefonos)
+        ->toBe(['924506649', '924506650']);
+});
+
+test('un teléfono que no queda en 9 dígitos es rechazado', function () {
+    $this->actingAs(crearAdmin())
+        ->from(route('modulos.contactos.index'))
+        ->post(route('modulos.contactos.store'), [
+            'geocerca' => 'PLANTA LIMA',
+            'nombre' => 'X',
+            'telefonos' => ['12345'],
+        ])
+        ->assertSessionHasErrors('telefonos.0');
+});
+
 test('un correo inválido de la lista es rechazado', function () {
     $this->actingAs(crearAdmin())
         ->from(route('modulos.contactos.index'))
