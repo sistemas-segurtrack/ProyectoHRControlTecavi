@@ -23,6 +23,7 @@ const campos = ref(camposVacios());
 
 // Foto del documento.
 const video = useTemplateRef<HTMLVideoElement>('video');
+const camaraContenedor = useTemplateRef<HTMLDivElement>('camaraContenedor');
 const stream = ref<MediaStream | null>(null);
 const camaraAbierta = ref(false);
 const camaraError = ref('');
@@ -120,6 +121,13 @@ async function abrirCamara(): Promise<void> {
             video.value.srcObject = stream.value;
             await video.value.play().catch(() => undefined);
         }
+        // La cámara suele quedar más abajo del campo que se estaba llenando
+        // (varios campos antes) — se centra en pantalla para que el
+        // conductor no tenga que buscarla haciendo scroll a mano.
+        camaraContenedor.value?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+        });
     } catch {
         camaraError.value =
             'No se pudo abrir la cámara. Revisa los permisos del navegador.';
@@ -302,7 +310,11 @@ defineExpose({ activo, listo, finalizara, anexar, reset });
                 </span>
 
                 <!-- Cámara en vivo -->
-                <div v-if="camaraAbierta" class="flex flex-col gap-2">
+                <div
+                    v-if="camaraAbierta"
+                    ref="camaraContenedor"
+                    class="flex flex-col gap-2"
+                >
                     <video
                         ref="video"
                         autoplay
