@@ -67,7 +67,7 @@ const prefersDark = (): boolean => {
 const handleSystemThemeChange = () => {
     const currentAppearance = getStoredAppearance();
 
-    updateTheme(currentAppearance || 'system');
+    updateTheme(currentAppearance || 'light');
 };
 
 export function initializeTheme(): void {
@@ -75,15 +75,18 @@ export function initializeTheme(): void {
         return;
     }
 
-    // Initialize theme from saved preference or default to system...
+    // Initialize theme from saved preference or default to light (no
+    // seguir el modo del sistema operativo por defecto, a pedido del
+    // usuario)...
     const savedAppearance = getStoredAppearance();
-    updateTheme(savedAppearance || 'system');
+    updateTheme(savedAppearance || 'light');
 
-    // Set up system theme change listener...
+    // Set up system theme change listener (solo aplica una vez que el
+    // usuario elige explícitamente "system" en Configuración)...
     mediaQuery()?.addEventListener('change', handleSystemThemeChange);
 }
 
-const appearance = ref<Appearance>('system');
+const appearance = ref<Appearance>('light');
 
 export function useAppearance(): UseAppearanceReturn {
     onMounted(() => {
