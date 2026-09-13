@@ -31,7 +31,7 @@ class CrearRutaRequest extends FormRequest implements ConDocumentoAdjunto
             // rechazaba de arranque kilometrajes reales válidos. Solo se
             // valida "no retrocede" dentro de la propia ruta, en `Continuar`.
             'kilometraje' => $this->reglasKilometraje(),
-            'geocerca' => ['nullable', 'string', 'max:200'],
+            'geocerca' => ['required', 'string', 'max:200'],
             'coordenada' => ['nullable', 'string', 'max:50'],
             'fhRegistro' => ['nullable', 'date'],
             'observacion' => ['nullable', 'string', 'max:500'],

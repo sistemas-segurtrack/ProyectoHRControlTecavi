@@ -30,12 +30,30 @@ test('el kilometraje es obligatorio para crear una ruta', function () {
 
 test('el kilometraje es obligatorio para registrar un avance', function () {
     Sanctum::actingAs(conductorPwa(), ['*']);
-    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100'])
         ->json('data.idruta');
 
     $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['geocerca' => 'DESTINO'])
         ->assertStatus(422)
         ->assertJsonValidationErrors(['kilometraje' => 'El campo kilometraje es obligatorio.']);
+});
+
+test('el lugar es obligatorio para crear una ruta', function () {
+    Sanctum::actingAs(conductorPwa(), ['*']);
+
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['geocerca' => 'El campo lugar es obligatorio.']);
+});
+
+test('el lugar es obligatorio para registrar un avance', function () {
+    Sanctum::actingAs(conductorPwa(), ['*']);
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100'])
+        ->json('data.idruta');
+
+    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['kilometraje' => '150'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['geocerca' => 'El campo lugar es obligatorio.']);
 });
 
 test('crear ruta genera hoja T###### con el conductor como piloto y orden 1 EN RUTA', function () {
@@ -47,6 +65,7 @@ test('crear ruta genera hoja T###### con el conductor como piloto y orden 1 EN R
         'copiloto' => 'JOSE MOLINA',
         'precintos' => 'P-1',
         'carreta' => 'ATT888',
+        'geocerca' => 'PLANTA LIMA',
         'kilometraje' => '1000',
     ])
         ->assertCreated()
@@ -64,6 +83,7 @@ test('crear ruta respeta el fhRegistro enviado por el conductor', function () {
 
     $this->postJson('/api/pwa/rutas', [
         'placa' => 'AAA-111',
+        'geocerca' => 'PLANTA LIMA',
         'kilometraje' => '100',
         'fhRegistro' => '2026-01-15T08:30',
     ])
@@ -77,7 +97,7 @@ test('crear ruta respeta el fhRegistro enviado por el conductor', function () {
 test('crear ruta sin fhRegistro cae en la hora actual', function () {
     Sanctum::actingAs(conductorPwa(), ['*']);
 
-    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])->assertCreated();
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100'])->assertCreated();
 
     $detalle = DetalleRuta::first();
     expect($detalle->fhRegistro->diffInSeconds(now()))->toBeLessThan(5);
@@ -85,7 +105,7 @@ test('crear ruta sin fhRegistro cae en la hora actual', function () {
 
 test('registrar orden respeta el fhRegistro enviado por el conductor', function () {
     Sanctum::actingAs(conductorPwa(), ['*']);
-    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])->json('data.idruta');
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100'])->json('data.idruta');
 
     $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", [
         'geocerca' => 'PLANTA SUR',
@@ -102,17 +122,17 @@ test('registrar orden respeta el fhRegistro enviado por el conductor', function 
 test('no deja crear una segunda ruta si ya hay una en curso', function () {
     Sanctum::actingAs(conductorPwa(), ['*']);
 
-    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])->assertCreated();
-    $this->postJson('/api/pwa/rutas', ['placa' => 'BBB-222', 'kilometraje' => '100'])->assertStatus(409);
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100'])->assertCreated();
+    $this->postJson('/api/pwa/rutas', ['placa' => 'BBB-222', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100'])->assertStatus(409);
 });
 
 test('no deja crear una ruta sobre una unidad que ya tiene un tramo en curso con otro conductor', function () {
     Sanctum::actingAs(conductorPwa('11111111'), ['*']);
-    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100'])
         ->assertCreated()->json('data.idruta');
 
     Sanctum::actingAs(conductorPwa('22222222'), ['*']);
-    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '500'])
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '500'])
         ->assertStatus(422)
         ->assertJsonValidationErrors([
             'placa' => "La unidad AAA-111 ya tiene una hoja de ruta en curso ({$idruta}). Continúala o finalízala antes de iniciar una nueva.",
@@ -124,9 +144,10 @@ test('la unidad vuelve a estar libre una vez que su hoja de ruta finaliza', func
     $tipo = TipoDocumento::create(['nombre' => 'GUIA', 'condicionaFin' => '1']);
 
     Sanctum::actingAs(conductorPwa('11111111'), ['*']);
-    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100'])
         ->assertCreated()->json('data.idruta');
     $this->post("/api/pwa/rutas/{$idruta}/ordenes", [
+        'geocerca' => 'DESTINO',
         'kilometraje' => '150',
         'adjuntar' => '1',
         'documento' => [
@@ -137,17 +158,17 @@ test('la unidad vuelve a estar libre una vez que su hoja de ruta finaliza', func
     ])->assertCreated()->assertJsonPath('data.estado', Ruta::FINALIZADA);
 
     Sanctum::actingAs(conductorPwa('22222222'), ['*']);
-    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '500'])->assertCreated();
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '500'])->assertCreated();
 });
 
 test('el Idempotency-Key reproduce la respuesta sin crear otra ruta', function () {
     Sanctum::actingAs(conductorPwa(), ['*']);
 
     $r1 = $this->withHeader('Idempotency-Key', 'abc-123')
-        ->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])->assertCreated();
+        ->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100'])->assertCreated();
 
     $r2 = $this->withHeader('Idempotency-Key', 'abc-123')
-        ->postJson('/api/pwa/rutas', ['placa' => 'ZZZ-999', 'kilometraje' => '100']);
+        ->postJson('/api/pwa/rutas', ['placa' => 'ZZZ-999', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100']);
 
     $r2->assertCreated()->assertHeader('Idempotency-Replayed', 'true')
         ->assertJsonPath('data.idruta', $r1->json('data.idruta'));
@@ -159,7 +180,7 @@ test('registrar orden finaliza la anterior (observer vía API)', function () {
     $c = conductorPwa();
     Sanctum::actingAs($c, ['*']);
 
-    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100'])
         ->json('data.idruta');
 
     $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", [
@@ -177,10 +198,10 @@ test('registrar orden finaliza la anterior (observer vía API)', function () {
 test('un conductor no puede registrar orden en la ruta de otro', function () {
     $a = conductorPwa('11111111');
     Sanctum::actingAs($a, ['*']);
-    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])->json('data.idruta');
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100'])->json('data.idruta');
 
     Sanctum::actingAs(conductorPwa('22222222'), ['*']);
-    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['kilometraje' => '150'])
+    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['geocerca' => 'DESTINO', 'kilometraje' => '150'])
         ->assertNotFound();
 });
 
@@ -216,6 +237,7 @@ test('crear ruta con documento condicionaFin = 1 nace finalizada', function () {
 
     $this->post('/api/pwa/rutas', [
         'placa' => 'AAA-111',
+        'geocerca' => 'PLANTA LIMA',
         'kilometraje' => '100',
         'adjuntar' => '1',
         'documento' => [
@@ -237,7 +259,7 @@ test('registrar orden con documento adjunto guarda el DocRuta y el archivo', fun
     $tipo = TipoDocumento::create(['nombre' => 'PACKING LIST', 'condicionaFin' => '0']);
     Sanctum::actingAs(conductorPwa(), ['*']);
 
-    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])->json('data.idruta');
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100'])->json('data.idruta');
 
     $this->post("/api/pwa/rutas/{$idruta}/ordenes", [
         'geocerca' => 'PLANTA SUR',
@@ -275,7 +297,7 @@ test('un documento con condicionaFin = 1 finaliza la hoja de ruta', function () 
     $tipo = TipoDocumento::create(['nombre' => 'GUIA DE REMISION', 'condicionaFin' => '1']);
     Sanctum::actingAs(conductorPwa(), ['*']);
 
-    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])->json('data.idruta');
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100'])->json('data.idruta');
 
     $res = $this->post("/api/pwa/rutas/{$idruta}/ordenes", [
         'geocerca' => 'DESTINO',
@@ -299,7 +321,7 @@ test('un documento con condicionaFin = 1 finaliza la hoja de ruta', function () 
 
 test('el tipo de documento es obligatorio si se activa Adjuntar', function () {
     Sanctum::actingAs(conductorPwa(), ['*']);
-    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])->json('data.idruta');
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100'])->json('data.idruta');
 
     $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['adjuntar' => true, 'documento' => ['documento' => 'X']])
         ->assertStatus(422)
@@ -309,7 +331,7 @@ test('el tipo de documento es obligatorio si se activa Adjuntar', function () {
 test('el peso neto debe ser numérico y el error sale en español', function () {
     $tipo = TipoDocumento::create(['nombre' => 'GUIA', 'condicionaFin' => '0']);
     Sanctum::actingAs(conductorPwa(), ['*']);
-    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])->json('data.idruta');
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100'])->json('data.idruta');
 
     $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", [
         'adjuntar' => true,
@@ -346,7 +368,7 @@ test('crear una ruta no valida el kilometraje contra el contador de Wialon', fun
     ]);
     Sanctum::actingAs(conductorPwa(), ['*']);
 
-    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '4999'])
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '4999'])
         ->assertCreated();
 });
 
@@ -359,14 +381,14 @@ test('deja crear una ruta con kilometraje igual o mayor al contador de Wialon', 
     ]);
     Sanctum::actingAs(conductorPwa(), ['*']);
 
-    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '5000'])
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '5000'])
         ->assertCreated();
 });
 
 test('no deja cerrar un tramo con kilometraje menor al de su propia parada de inicio', function () {
     Sanctum::actingAs(conductorPwa(), ['*']);
     // Orden 1 (impar) = inicio del tramo. Orden 2 (par) = su fin.
-    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '300'])
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '300'])
         ->json('data.idruta');
 
     $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['kilometraje' => '299'])
@@ -377,26 +399,26 @@ test('no deja cerrar un tramo con kilometraje menor al de su propia parada de in
 test('un tramo nuevo no queda atado al kilometraje de un tramo ya cerrado', function () {
     Sanctum::actingAs(conductorPwa(), ['*']);
     // Tramo 1: orden 1 (inicio, 300) -> orden 2 (fin, 350).
-    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '300'])
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '300'])
         ->json('data.idruta');
-    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['kilometraje' => '350'])
+    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['geocerca' => 'DESTINO', 'kilometraje' => '350'])
         ->assertCreated();
 
     // Orden 3 (impar) abre un tramo nuevo: un kilometraje MENOR al del tramo
     // 1 ya cerrado (350) no debería rechazarse — es un tramo distinto.
-    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['kilometraje' => '200'])
+    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['geocerca' => 'DESTINO', 'kilometraje' => '200'])
         ->assertCreated();
 });
 
 test('dentro del tramo nuevo, su propio fin sigue sin poder bajar de su propio inicio', function () {
     Sanctum::actingAs(conductorPwa(), ['*']);
     // Tramo 1: orden 1 (300) -> orden 2 (350).
-    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '300'])
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '300'])
         ->json('data.idruta');
-    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['kilometraje' => '350'])
+    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['geocerca' => 'DESTINO', 'kilometraje' => '350'])
         ->assertCreated();
     // Tramo 2: orden 3 (200, inicio de un tramo nuevo e independiente).
-    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['kilometraje' => '200'])
+    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['geocerca' => 'DESTINO', 'kilometraje' => '200'])
         ->assertCreated();
 
     // Orden 4 (par) cierra el tramo 2: no puede bajar de SU propio inicio (200).
@@ -415,7 +437,7 @@ test('empuja el contador a Wialon cuando el kilometraje ingresado lo supera', fu
     ]);
     Sanctum::actingAs(conductorPwa(), ['*']);
 
-    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '150'])
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '150'])
         ->assertCreated();
 
     Queue::assertPushed(
@@ -434,7 +456,7 @@ test('no empuja el contador a Wialon cuando el kilometraje ingresado no lo super
     ]);
     Sanctum::actingAs(conductorPwa(), ['*']);
 
-    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '150'])
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '150'])
         ->assertCreated();
 
     Queue::assertNotPushed(ActualizarContadorKilometrajeJob::class);
@@ -443,7 +465,7 @@ test('no empuja el contador a Wialon cuando el kilometraje ingresado no lo super
 test('adjuntar sin código de documento o sin foto falla la validación', function () {
     $tipo = TipoDocumento::create(['nombre' => 'GUIA', 'condicionaFin' => '0']);
     Sanctum::actingAs(conductorPwa(), ['*']);
-    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])->json('data.idruta');
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100'])->json('data.idruta');
 
     $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", [
         'kilometraje' => '150',

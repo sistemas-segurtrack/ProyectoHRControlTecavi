@@ -48,11 +48,13 @@ test('sin contacto en la geocerca no manda ningun whatsapp', function () {
     Http::assertNothingSent();
 });
 
-test('sin geocerca al crear no manda ningun whatsapp', function () {
+test('sin geocerca no se puede crear la ruta (y por lo tanto no se manda nada)', function () {
     fakeWhatsappOk();
     Sanctum::actingAs(conductorPwa(), ['*']);
 
-    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])->assertCreated();
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('geocerca');
 
     Http::assertNothingSent();
 });
@@ -125,7 +127,7 @@ test('registrar un avance sin condicionaFin no manda whatsapp de finalizada', fu
     $tipo = TipoDocumento::create(['nombre' => 'PACKING', 'condicionaFin' => '0']);
     Sanctum::actingAs(conductorPwa(), ['*']);
 
-    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'kilometraje' => '100'])->json('data.idruta');
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'ORIGEN', 'kilometraje' => '100'])->json('data.idruta');
 
     $this->post("/api/pwa/rutas/{$idruta}/ordenes", [
         'geocerca' => 'DESTINO',

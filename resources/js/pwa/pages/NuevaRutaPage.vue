@@ -89,6 +89,10 @@ async function iniciar(): Promise<void> {
         error.value = 'El kilometraje es obligatorio.';
         return;
     }
+    if (form.value.geocerca.trim() === '') {
+        error.value = 'El lugar es obligatorio.';
+        return;
+    }
     // El aviso ya está visible junto al campo (se actualiza al instante
     // mientras se escribe) — no hace falta duplicarlo en el banner general.
     if (errorKm.value) return;
@@ -187,6 +191,7 @@ async function iniciar(): Promise<void> {
                 label="Lugar"
                 :options="state.catalogos.geocercas"
                 placeholder="Punto de partida"
+                required
             />
 
             <CampoTexto

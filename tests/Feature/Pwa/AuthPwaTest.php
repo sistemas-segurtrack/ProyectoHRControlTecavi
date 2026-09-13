@@ -31,7 +31,7 @@ test('login manda unidades_en_ruta con las placas que tienen un tramo abierto', 
     conductorPwa('9A000042', '123456');
     $otro = conductorPwa('9A000099', 'x');
     Sanctum::actingAs($otro, ['*']);
-    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'TEI838', 'kilometraje' => '100'])
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'TEI838', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100'])
         ->assertCreated()->json('data.idruta');
 
     $this->postJson('/api/pwa/login', ['codigo' => '9A000042', 'password' => '123456'])
