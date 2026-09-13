@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { RouterView } from 'vue-router';
+import {
+    aplicarActualizacion,
+    hayActualizacion,
+} from './lib/actualizaciones';
 import { iniciarUbicacion, precargarCamara } from './lib/dispositivo';
 import { usePendientes } from './lib/outbox';
 import { descartar, procesarCola, sincronizando } from './lib/sincronizar';
@@ -30,6 +34,19 @@ onMounted(() => {
     <div
         class="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100"
     >
+        <div
+            v-if="hayActualizacion"
+            class="flex items-center justify-center gap-2 bg-emerald-600 px-4 py-1.5 text-center text-xs font-semibold text-white"
+        >
+            <span>Hay una versión nueva de la app</span>
+            <button
+                type="button"
+                class="underline underline-offset-2"
+                @click="aplicarActualizacion"
+            >
+                Actualizar ahora
+            </button>
+        </div>
         <div
             v-if="offline"
             class="bg-amber-500 px-4 py-1.5 text-center text-xs font-semibold text-white"

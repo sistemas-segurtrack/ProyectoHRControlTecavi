@@ -1,5 +1,6 @@
 import { createApp } from 'vue';
 import App from './App.vue';
+import { vigilarActualizaciones } from './lib/actualizaciones';
 import { router } from './router';
 import '../../css/app.css';
 
@@ -12,6 +13,7 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker
             .register(`${base}/pwa/sw.js`, { scope: `${base}/pwa/` })
+            .then((registro) => vigilarActualizaciones(registro))
             .catch(() => {
                 /* el SW es opcional; la app funciona sin él */
             });
