@@ -161,6 +161,124 @@ test('no re-hashea si la contraseña no cambió', function () {
     expect($hash2)->toBe($hash1);
 });
 
+test('un cambio de contraseña en Wialon cierra la sesión de la PWA del conductor', function () {
+    $setear = fakeWialon();
+    $this->artisan('wialon:sync', ['--solo' => 'conductores'])->assertSuccessful();
+
+    $fredy = WialonConductor::where('wialon_conductor_id', 1)->firstOrFail();
+    $fredy->createToken('pwa');
+    expect($fredy->tokens()->count())->toBe(1);
+
+    $setear('conductores', [
+        'items' => [[
+            'nm' => 'TECAVI',
+            'drvrs' => [
+                '1' => ['id' => 1, 'n' => 'FREDY OMAR TANTALEAN', 'c' => '9A000001BA0F1601', 'jp' => ['DNI' => '42703898'], 'pwd' => 'clave-nueva'],
+                '2' => ['id' => 2, 'n' => 'JOSE MOLINA ARANA', 'c' => '9A000002CC1D2702', 'jp' => ['LICENCIA' => ''], 'pwd' => '1234', 'p' => '+51947731045', 'ds' => ''],
+            ],
+        ]],
+    ]);
+    $this->artisan('wialon:sync', ['--solo' => 'conductores'])->assertSuccessful();
+
+    expect($fredy->refresh()->tokens()->count())->toBe(0);
+    expect(Hash::check('clave-nueva', $fredy->pwd_hash))->toBeTrue();
+});
+
+test('sin cambio de contraseña la sesión de la PWA sigue viva', function () {
+    fakeWialon();
+    $this->artisan('wialon:sync', ['--solo' => 'conductores'])->assertSuccessful();
+
+    $fredy = WialonConductor::where('wialon_conductor_id', 1)->firstOrFail();
+    $fredy->createToken('pwa');
+
+    $this->artisan('wialon:sync', ['--solo' => 'conductores'])->assertSuccessful();
+
+    expect($fredy->refresh()->tokens()->count())->toBe(1);
+});
+
+test('al desactivarse un conductor que ya no viene de Wialon se le cierra la sesión', function () {
+    $setear = fakeWialon();
+    $this->artisan('wialon:sync', ['--solo' => 'conductores'])->assertSuccessful();
+
+    $jose = WialonConductor::where('wialon_conductor_id', 2)->firstOrFail();
+    $jose->createToken('pwa');
+
+    $setear('conductores', [
+        'items' => [[
+            'nm' => 'TECAVI',
+            'drvrs' => ['1' => ['id' => 1, 'n' => 'FREDY OMAR TANTALEAN', 'c' => '9A000001BA0F1601', 'jp' => ['DNI' => '42703898'], 'pwd' => '123456']],
+        ]],
+    ]);
+    $this->artisan('wialon:sync', ['--solo' => 'conductores'])->assertSuccessful();
+
+    expect($jose->refresh()->activo)->toBeFalse()
+        ->and($jose->tokens()->count())->toBe(0);
+});
+
+test('una unidad que ya no viene de Wialon se elimina del catálogo', function () {
+    $setear = fakeWialon();
+    $this->artisan('wialon:sync', ['--solo' => 'unidades'])->assertSuccessful();
+    expect(WialonUnidad::count())->toBe(2);
+
+    $setear('unidades', [
+        'items' => [
+            ['nm' => 'TEI838', 'id' => 401322397, 'cnm_km' => 301768, 'pflds' => ['1' => ['n' => 'registration_plate', 'v' => 'TEI838']]],
+        ],
+    ]);
+    $this->artisan('wialon:sync', ['--solo' => 'unidades'])->assertSuccessful();
+
+    expect(WialonUnidad::count())->toBe(1);
+    expect(WialonUnidad::firstWhere('placa', 'TEI838'))->not->toBeNull();
+});
+
+test('una carreta que ya no viene de Wialon se elimina del catálogo', function () {
+    $setear = fakeWialon();
+    $setear('carretas', [
+        'items' => [[
+            'nm' => 'TECAVI',
+            'id' => 400181399,
+            'trlrs' => ['1' => ['id' => 1, 'n' => 'ATT888'], '2' => ['id' => 2, 'n' => 'BBB999']],
+        ]],
+    ]);
+    $this->artisan('wialon:sync', ['--solo' => 'carretas'])->assertSuccessful();
+    expect(WialonCarreta::count())->toBe(2);
+
+    // BBB999 ya no viene -- el catálogo sigue trayendo ATT888, así que no es
+    // una respuesta vacía (eso lo cubre el test de abajo).
+    $setear('carretas', ['items' => [['nm' => 'TECAVI', 'id' => 400181399, 'trlrs' => ['1' => ['id' => 1, 'n' => 'ATT888']]]]]);
+    $this->artisan('wialon:sync', ['--solo' => 'carretas'])->assertSuccessful();
+
+    expect(WialonCarreta::pluck('nombre')->all())->toBe(['ATT888']);
+});
+
+test('una geocerca que ya no viene de Wialon se elimina del catálogo', function () {
+    $setear = fakeWialon();
+    $this->artisan('wialon:sync', ['--solo' => 'geocercas'])->assertSuccessful();
+    expect(WialonGeocerca::count())->toBe(2);
+
+    $setear('geocercas', [
+        'items' => [[
+            'nm' => 'TECAVI',
+            'id' => 400181399,
+            'zl' => ['2' => ['id' => 2, 'n' => 'PLANTA LIMA']],
+        ]],
+    ]);
+    $this->artisan('wialon:sync', ['--solo' => 'geocercas'])->assertSuccessful();
+
+    expect(WialonGeocerca::pluck('nombre')->all())->toBe(['PLANTA LIMA']);
+});
+
+test('una respuesta vacía de Wialon no borra el catálogo (posible fallo transitorio)', function () {
+    $setear = fakeWialon();
+    $this->artisan('wialon:sync', ['--solo' => 'geocercas'])->assertSuccessful();
+    expect(WialonGeocerca::count())->toBe(2);
+
+    $setear('geocercas', ['items' => []]);
+    $this->artisan('wialon:sync', ['--solo' => 'geocercas'])->assertSuccessful();
+
+    expect(WialonGeocerca::count())->toBe(2);
+});
+
 test('falla con mensaje claro si no hay token configurado', function () {
     config(['services.wialon.token' => null]);
     Http::fake();
