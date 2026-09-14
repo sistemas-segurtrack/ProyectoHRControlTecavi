@@ -61,14 +61,24 @@
         <tr>
             <td class="etiqueta">PRECINTOS:</td>
             <td class="valor">{{ $primera['precintos'] ?? '—' }}</td>
-            <td class="etiqueta">FECHA INICIO:</td>
-            <td class="valor">{{ $primera['fh_inicio'] ?? '—' }}</td>
+            <td class="etiqueta">FECHA INICIO - FECHA FINAL:</td>
+            <td class="valor">
+                @php($fechaInicio = $resumen['fh_inicio'] ?? $primera['fh_inicio'] ?? null)
+                @php($fechaFinal = $resumen['fh_final'] ?? null)
+                {{ $fechaInicio ? ($fechaInicio.($fechaFinal ? " - {$fechaFinal}" : '')) : '—' }}
+            </td>
         </tr>
         <tr>
             <td class="etiqueta">PLACA:</td>
             <td class="valor">{{ $primera['placa'] ?? '—' }}</td>
             <td class="etiqueta">CARRETA:</td>
             <td class="valor">{{ $primera['carreta'] ?? '—' }}</td>
+        </tr>
+        <tr>
+            <td class="etiqueta">ESTADO:</td>
+            <td class="valor">{{ $resumen['estado_label'] ?? '—' }}</td>
+            <td class="etiqueta"></td>
+            <td class="valor"></td>
         </tr>
     </table>
 

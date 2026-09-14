@@ -398,11 +398,11 @@ watch(
                         <DropdownMenuContent align="end" class="w-56">
                             <DropdownMenuItem @click="exportar('excel')">
                                 <FileSpreadsheet class="h-4 w-4 text-emerald-600" />
-                                Excel (XLSX) (detallado)
+                                Excel XLSX
                             </DropdownMenuItem>
                             <DropdownMenuItem @click="exportar('pdf')">
                                 <FileText class="h-4 w-4 text-[#b51927]" />
-                                PDF (detallado)
+                                PDF
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
@@ -692,11 +692,11 @@ watch(
                 <DropdownMenuContent align="end" class="w-56">
                     <DropdownMenuItem @click="exportar('excel', seleccionada?.hoja)">
                         <FileSpreadsheet class="h-4 w-4 text-emerald-600" />
-                        Excel (XLSX)
+                        Excel XLSX
                     </DropdownMenuItem>
                     <DropdownMenuItem @click="exportar('pdf', seleccionada?.hoja)">
                         <FileText class="h-4 w-4 text-[#b51927]" />
-                        PDF (A4)
+                        PDF
                     </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>

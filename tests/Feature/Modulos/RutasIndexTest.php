@@ -392,6 +392,7 @@ test('el formulario A4 de una hoja puntual (misma vista del PDF) excluye datos d
         'idHoja' => $filtros['hoja'],
         'logo' => null,
         'primera' => $filas->first() ?? [],
+        'resumen' => $hojas->resumenDeRuta($filtros['hoja']),
         'columnasItinerario' => ConsultaHojasRuta::COLUMNAS_FORMULARIO,
         'itinerario' => $filas->map(fn (array $f) => $hojas->filaFormulario($f))->all(),
         'documentos' => [],
@@ -399,6 +400,43 @@ test('el formulario A4 de una hoja puntual (misma vista del PDF) excluye datos d
 
     expect($html)->toContain('HOJA DE RUTA', 'PILOTO UNO', 'GEOCERCA UNO')
         ->not->toContain('PILOTO DOS', 'GEOCERCA DOS');
+});
+
+test('el formulario PDF trae Fecha Inicio - Fecha Final, Estado y Observación', function () {
+    $contacto = Contacto::factory()->create();
+    $ruta = Ruta::factory()->create([
+        'idruta' => 'T000921',
+        'estado' => Ruta::ACTIVA,
+    ]);
+    DetalleRuta::factory()->for($contacto, 'contacto')->create([
+        'ruta_idruta' => $ruta->idruta,
+        'orden' => 1,
+        'observacion' => 'Camino en mal estado',
+        'fhRegistro' => '2026-02-01 09:00:00',
+    ]);
+
+    $hojas = app(ConsultaHojasRuta::class);
+    $filtros = $hojas->filtros(Request::create('/', 'GET', ['hoja' => 'T000921']));
+    $filas = $hojas->filas($filtros);
+
+    $html = view('exports.hoja-ruta-formulario', [
+        'idHoja' => $filtros['hoja'],
+        'logo' => null,
+        'primera' => $filas->first() ?? [],
+        'resumen' => $hojas->resumenDeRuta($filtros['hoja']),
+        'columnasItinerario' => ConsultaHojasRuta::COLUMNAS_FORMULARIO,
+        'itinerario' => $filas->map(fn (array $f) => $hojas->filaFormulario($f))->all(),
+        'documentos' => [],
+    ])->render();
+
+    expect($html)->toContain(
+        'FECHA INICIO - FECHA FINAL:',
+        '01/02/2026 09:00',
+        'ESTADO:',
+        'ACTIVA',
+        'Observación',
+        'Camino en mal estado',
+    );
 });
 
 test('el export XLSX de una sola hoja arma el formulario con cabecera, itinerario y documentos', function () {
@@ -499,6 +537,47 @@ test('el export XLSX de una sola hoja arma el formulario con cabecera, itinerari
     // fila 8; documentos: título fila 10, cabecera fila 11, primer documento 12).
     expect($hoja->getCell('H12')->getValue())->toBe('Ver Archivo')
         ->and($hoja->getCell('H12')->getHyperlink()->getUrl())->toBe('https://tools.segurtrack.com/hrcontrol/storage/docruta/foto-900.jpg');
+});
+
+test('el export XLSX de una sola hoja trae Fecha Inicio - Fecha Final, Estado y Observación', function () {
+    $contacto = Contacto::factory()->create();
+    $ruta = Ruta::factory()->create([
+        'idruta' => 'T000920',
+        'placa' => 'EST-001',
+        'estado' => Ruta::FINALIZADA,
+    ]);
+
+    DetalleRuta::factory()->for($contacto, 'contacto')->create([
+        'ruta_idruta' => $ruta->idruta,
+        'orden' => 1,
+        'observacion' => 'Salida con retraso',
+        'fhRegistro' => '2026-01-01 08:00:00',
+        'estado' => DetalleRuta::FINALIZADO,
+    ]);
+    DetalleRuta::factory()->for($contacto, 'contacto')->create([
+        'ruta_idruta' => $ruta->idruta,
+        'orden' => 2,
+        'fhRegistro' => '2026-01-01 15:30:00',
+        'estado' => DetalleRuta::FINALIZADO,
+    ]);
+
+    $response = $this->actingAs(crearAdmin())
+        ->get(route('modulos.rutas.exportar.excel', ['hoja' => 'T000920']));
+
+    $archivo = tempnam(sys_get_temp_dir(), 'xlsx');
+    file_put_contents($archivo, $response->streamedContent());
+    $libro = (new XlsxReader)->load($archivo);
+    unlink($archivo);
+
+    $hoja = $libro->getActiveSheet();
+    expect($hoja->getCell('K4')->getValue())->toBe('FECHA INICIO - FECHA FINAL:')
+        ->and($hoja->getCell('L4')->getValue())->toBe('01/01/2026 08:00 - 01/01/2026 15:30')
+        ->and($hoja->getCell('H5')->getValue())->toBe('ESTADO:')
+        ->and($hoja->getCell('I5')->getValue())->toBe('FINALIZADA')
+        // Cabecera del itinerario en la fila 7 -- Observación antes de Estado.
+        ->and($hoja->getCell('N7')->getValue())->toBe('Observación')
+        ->and($hoja->getCell('O7')->getValue())->toBe('Estado')
+        ->and($hoja->getCell('N8')->getValue())->toBe('Salida con retraso');
 });
 
 test('el export XLSX de una hoja acota a un solo detalle cuando se pide (tal cual el modal)', function () {

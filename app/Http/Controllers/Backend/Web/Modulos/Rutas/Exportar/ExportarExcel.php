@@ -152,7 +152,7 @@ class ExportarExcel extends Controller
         $hoja->setTitle('Hoja de ruta');
         $hoja->setShowGridlines(false);
 
-        $anchoColumnas = ['A' => 22, 'B' => 16, 'C' => 16, 'D' => 20, 'E' => 20, 'F' => 15, 'G' => 15, 'H' => 15, 'I' => 15, 'J' => 11, 'K' => 11, 'L' => 9, 'M' => 9, 'N' => 12];
+        $anchoColumnas = ['A' => 22, 'B' => 16, 'C' => 16, 'D' => 20, 'E' => 20, 'F' => 15, 'G' => 15, 'H' => 15, 'I' => 15, 'J' => 11, 'K' => 11, 'L' => 9, 'M' => 9, 'N' => 30, 'O' => 12];
         foreach ($anchoColumnas as $col => $ancho) {
             $hoja->getColumnDimension($col)->setWidth($ancho);
         }
@@ -162,8 +162,9 @@ class ExportarExcel extends Controller
         $itinerario = $filas->sortBy('orden')->values();
         /** @var array<string, mixed> $primera */
         $primera = $itinerario->first() ?? [];
+        $resumen = $this->hojas->resumenDeRuta($idHoja);
 
-        $siguiente = $this->encabezadoFormulario($hoja, $idHoja, $primera);
+        $siguiente = $this->encabezadoFormulario($hoja, $idHoja, $primera, $resumen);
         $siguiente = $this->tablaItinerario($hoja, $siguiente + 2, $itinerario);
         $this->tablaDocumentos($hoja, $siguiente + 2, $itinerario);
     }
@@ -173,8 +174,9 @@ class ExportarExcel extends Controller
      * la última fila usada.
      *
      * @param  array<string, mixed>  $primera
+     * @param  array<string, mixed>|null  $resumen  ver `ConsultaHojasRuta::resumenDeRuta()`
      */
-    private function encabezadoFormulario(Worksheet $hoja, string $idHoja, array $primera): int
+    private function encabezadoFormulario(Worksheet $hoja, string $idHoja, array $primera, ?array $resumen): int
     {
         $ruta = public_path('recursos/logo-segurtrack.png');
         if (is_file($ruta)) {
@@ -191,11 +193,11 @@ class ExportarExcel extends Controller
         $hoja->getRowDimension(2)->setRowHeight(20);
         // El título va alineado a la derecha (más profesional que centrado,
         // con el logo a la izquierda).
-        $hoja->mergeCells('C1:N1')->setCellValue('C1', 'HOJA DE RUTA');
+        $hoja->mergeCells('C1:O1')->setCellValue('C1', 'HOJA DE RUTA');
         $hoja->getStyle('C1')->getFont()->setBold(true)->setSize(18)->getColor()->setRGB(self::ROJO);
         $hoja->getStyle('C1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
-        $hoja->mergeCells('C2:N2')->setCellValue('C2', 'N° '.$idHoja);
+        $hoja->mergeCells('C2:O2')->setCellValue('C2', 'N° '.$idHoja);
         $hoja->getStyle('C2')->getFont()->setBold(true)->setSize(13);
         $hoja->getStyle('C2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
@@ -211,15 +213,24 @@ class ExportarExcel extends Controller
             $hoja->getStyle($celdaValorDesde)->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
         };
 
+        // Fecha inicio/final y estado son de la HOJA completa (ruta.estado y
+        // la primera/última parada registrada) — no del primer tramo, que
+        // podría no ser el último si la hoja sigue abierta.
+        $fechaInicio = (string) ($resumen['fh_inicio'] ?? $primera['fh_inicio'] ?? '');
+        $fechaFinal = (string) ($resumen['fh_final'] ?? '');
+        $rangoFechas = $fechaFinal !== '' ? "{$fechaInicio} - {$fechaFinal}" : $fechaInicio;
+        $estado = (string) ($resumen['estado_label'] ?? '');
+
         $hoja->getRowDimension(4)->setRowHeight(18);
         $campo('A4', 'B4', 'D4', 'CONDUCTOR:', (string) ($primera['conductor'] ?? ''));
         $campo('E4', 'F4', 'G4', 'COPILOTO:', (string) ($primera['copiloto'] ?? ''));
         $campo('H4', 'I4', 'J4', 'PRECINTOS:', (string) ($primera['precintos'] ?? ''));
-        $campo('K4', 'L4', 'N4', 'FECHA INICIO:', (string) ($primera['fh_inicio'] ?? ''));
+        $campo('K4', 'L4', 'N4', 'FECHA INICIO - FECHA FINAL:', $rangoFechas);
 
         $hoja->getRowDimension(5)->setRowHeight(18);
         $campo('A5', 'B5', 'D5', 'PLACA:', (string) ($primera['placa'] ?? ''));
         $campo('E5', 'F5', 'G5', 'CARRETA:', (string) ($primera['carreta'] ?? ''));
+        $campo('H5', 'I5', 'J5', 'ESTADO:', $estado);
 
         return 5;
     }
@@ -238,9 +249,9 @@ class ExportarExcel extends Controller
         }
 
         $ultimaFila = max($fila - 1, $desde);
-        $this->estiloCabecera($hoja, "A{$desde}:N{$desde}");
-        $this->conBordes($hoja, "A{$desde}:N{$ultimaFila}");
-        $hoja->getStyle('A'.($desde + 1).':N'.$ultimaFila)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $this->estiloCabecera($hoja, "A{$desde}:O{$desde}");
+        $this->conBordes($hoja, "A{$desde}:O{$ultimaFila}");
+        $hoja->getStyle('A'.($desde + 1).':O'.$ultimaFila)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         return $ultimaFila;
     }

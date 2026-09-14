@@ -59,6 +59,7 @@ class ExportarPdf extends Controller
         $itinerario = $filas->sortBy('orden')->values();
         /** @var array<string, mixed> $primera */
         $primera = $itinerario->first() ?? [];
+        $resumen = $this->hojas->resumenDeRuta($filtros['hoja']);
 
         /** @var list<array<string, mixed>> $documentos */
         $documentos = $itinerario->flatMap(fn (array $fila): array => $fila['documentos'] ?? [])->all();
@@ -67,6 +68,7 @@ class ExportarPdf extends Controller
             'idHoja' => $filtros['hoja'],
             'logo' => $this->logo(),
             'primera' => $primera,
+            'resumen' => $resumen,
             'columnasItinerario' => ConsultaHojasRuta::COLUMNAS_FORMULARIO,
             'itinerario' => $itinerario->map(fn (array $fila): array => $this->hojas->filaFormulario($fila))->all(),
             'documentos' => $documentos,

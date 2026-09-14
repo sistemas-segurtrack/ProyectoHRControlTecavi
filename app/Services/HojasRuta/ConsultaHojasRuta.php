@@ -88,6 +88,7 @@ class ConsultaHojasRuta
         'Fecha Final Conductor',
         'Km Final',
         'Diferencia Final',
+        'Observación',
         'Estado',
     ];
 
@@ -291,6 +292,28 @@ class ConsultaHojasRuta
         }
 
         return $agrupados;
+    }
+
+    /**
+     * Resumen de UNA hoja de ruta (fecha inicial/final de toda la hoja y
+     * `ruta.estado`), para el encabezado del export "hoja de ruta puntual"
+     * (Excel/PDF formulario) — reusa `baseQueryPorRuta()`/`transformarRuta()`
+     * en vez de derivarlo del itinerario por tramo, que no sabe el estado de
+     * la hoja ni tiene la última fecha si el último tramo quedó abierto.
+     *
+     * @return array<string, mixed>|null null si la hoja no existe
+     */
+    public function resumenDeRuta(string $idHoja): ?array
+    {
+        $filtros = array_fill_keys(
+            ['conductor', 'placa', 'id', 'desde', 'hasta', 'estado', 'geocerca', 'hoja', 'detalle'],
+            ''
+        );
+        $filtros['hoja'] = $idHoja;
+
+        $fila = $this->baseQueryPorRuta($filtros)->first();
+
+        return $fila === null ? null : $this->transformarRuta($fila);
     }
 
     /**
@@ -591,6 +614,7 @@ class ConsultaHojasRuta
             (string) ($fila['cond_final'] ?? ''),
             (string) ($fila['km_final'] ?? ''),
             $this->difTexto($fila['dif_final'] ?? null),
+            (string) ($fila['observacion'] ?? ''),
             (string) ($fila['estado_label'] ?? ''),
         ];
     }
