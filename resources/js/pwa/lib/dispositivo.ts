@@ -54,6 +54,25 @@ export function iniciarUbicacion(): void {
 }
 
 /**
+ * Vuelve a pedir el permiso de ubicación (botón "Reintentar" de la pantalla
+ * de bloqueo). Si el navegador lo denegó de forma permanente, esto no
+ * reabre el diálogo nativo —el conductor tiene que habilitarlo a mano desde
+ * la configuración del navegador— pero sí vuelve a intentar apenas lo haga.
+ */
+export function reintentarUbicacion(): void {
+    if (!('geolocation' in navigator)) {
+        estado.permiso = 'no-soportado';
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(fija, falla, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+    });
+}
+
+/**
  * Pre-solicita el permiso de cámara al arrancar (best-effort). En móvil el
  * input `capture` abre la cámara igual; esto solo adelanta el diálogo.
  */
