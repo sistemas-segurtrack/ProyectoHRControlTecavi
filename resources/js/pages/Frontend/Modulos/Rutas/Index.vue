@@ -52,9 +52,9 @@ type Documento = {
 };
 
 type Hoja = {
-    id: number;
+    /** El `idruta` — una fila por hoja de ruta completa, no por tramo. */
+    id: string;
     hoja: string | null;
-    tramo: number;
     placa: string | null;
     carreta: string | null;
     conductor: string | null;
@@ -261,22 +261,18 @@ function recargarDatos(): void {
     recargar(props.paginaMeta.actual);
 }
 
-function exportar(
-    formato: 'excel' | 'pdf',
-    hoja?: string | null,
-    detalle?: number | null,
-): void {
+function exportar(formato: 'excel' | 'pdf', hoja?: string | null): void {
     const params = hoja
-        ? { hoja, ...(detalle ? { detalle } : {}) }
+        ? { hoja }
         : {
-              conductor: filtroConductor.value,
-              placa: filtroPlaca.value,
-              id: filtroId.value,
-              desde: filtroDesde.value,
-              hasta: filtroHasta.value,
-              estado: filtroEstado.value,
-              geocerca: filtroGeocerca.value,
-          };
+            conductor: filtroConductor.value,
+            placa: filtroPlaca.value,
+            id: filtroId.value,
+            desde: filtroDesde.value,
+            hasta: filtroHasta.value,
+            estado: filtroEstado.value,
+            geocerca: filtroGeocerca.value,
+        };
     exportando.value = true;
     window.location.href = rutasRoutes.exportar[formato].url({ query: params });
     setTimeout(() => {
@@ -325,44 +321,31 @@ watch(
 </script>
 
 <template>
+
     <Head title="Rutas" />
 
     <AccesoRutasModal v-if="props.necesitaAcceso" />
 
     <div class="flex h-full flex-1 flex-col gap-4 overflow-x-auto p-2 md:p-4">
-        <div
-            class="flex flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700"
-        >
+        <div class="flex flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
             <!-- Cabecera -->
             <div
-                class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800"
-            >
+                class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
                 <div class="flex items-center gap-2.5">
-                    <button
-                        type="button"
+                    <button type="button"
                         class="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
-                        :aria-expanded="mostrarFiltros"
-                        @click="mostrarFiltros = !mostrarFiltros"
-                    >
+                        :aria-expanded="mostrarFiltros" @click="mostrarFiltros = !mostrarFiltros">
                         <Filter class="h-4 w-4" />
                         Filtros
-                        <span
-                            v-if="cantidadFiltrosActivos"
-                            class="rounded-full bg-[#b51927] px-1.5 text-[10px] leading-4 font-bold text-white"
-                        >
+                        <span v-if="cantidadFiltrosActivos"
+                            class="rounded-full bg-[#b51927] px-1.5 text-[10px] leading-4 font-bold text-white">
                             {{ cantidadFiltrosActivos }}
                         </span>
-                        <ChevronDown
-                            class="h-4 w-4 transition-transform"
-                            :class="mostrarFiltros ? 'rotate-180' : ''"
-                        />
+                        <ChevronDown class="h-4 w-4 transition-transform" :class="mostrarFiltros ? 'rotate-180' : ''" />
                     </button>
-                    <button
-                        v-if="cantidadFiltrosActivos"
-                        type="button"
+                    <button v-if="cantidadFiltrosActivos" type="button"
                         class="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-                        @click="limpiarFiltros"
-                    >
+                        @click="limpiarFiltros">
                         Limpiar filtros
                     </button>
                 </div>
@@ -370,21 +353,15 @@ watch(
                     <DropdownMenu v-if="puedeExportar">
                         <DropdownMenuTrigger
                             class="inline-flex items-center gap-1.5 rounded-lg border border-green-300 bg-green-50 px-3 py-1.5 text-sm font-medium text-green-700 transition hover:bg-green-100 disabled:opacity-50 dark:border-green-700 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/50"
-                            :disabled="exportando"
-                        >
-                            <Loader2
-                                v-if="exportando"
-                                class="h-3.5 w-3.5 animate-spin text-[#b51927]"
-                            />
+                            :disabled="exportando">
+                            <Loader2 v-if="exportando" class="h-3.5 w-3.5 animate-spin text-[#b51927]" />
                             <FileSpreadsheet v-else class="h-3.5 w-3.5" />
                             {{ exportando ? 'Generando...' : 'Exportar' }}
                             <ChevronDown class="h-3.5 w-3.5" />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" class="w-56">
                             <DropdownMenuItem @click="exportar('excel')">
-                                <FileSpreadsheet
-                                    class="h-4 w-4 text-emerald-600"
-                                />
+                                <FileSpreadsheet class="h-4 w-4 text-emerald-600" />
                                 Excel (XLSX) (detallado)
                             </DropdownMenuItem>
                             <DropdownMenuItem @click="exportar('pdf')">
@@ -393,120 +370,60 @@ watch(
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
-                    <button
-                        type="button"
+                    <button type="button"
                         class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-100 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                        :disabled="cargando"
-                        @click="recargarDatos"
-                    >
-                        <RefreshCw
-                            class="h-3.5 w-3.5"
-                            :class="{ 'animate-spin': cargando }"
-                        />
+                        :disabled="cargando" @click="recargarDatos">
+                        <RefreshCw class="h-3.5 w-3.5" :class="{ 'animate-spin': cargando }" />
                         Actualizar
                     </button>
                 </div>
             </div>
 
             <!-- Filtros -->
-            <Transition
-                enter-active-class="transition duration-200 ease-out"
-                leave-active-class="transition duration-150 ease-in"
-                enter-from-class="-translate-y-1 opacity-0"
-                leave-to-class="-translate-y-1 opacity-0"
-            >
-                <div
-                    v-show="mostrarFiltros"
-                    class="border-b border-gray-200 bg-white px-3 py-3 sm:px-4 dark:border-gray-700 dark:bg-gray-900"
-                >
-                    <div
-                        class="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7"
-                    >
+            <Transition enter-active-class="transition duration-200 ease-out"
+                leave-active-class="transition duration-150 ease-in" enter-from-class="-translate-y-1 opacity-0"
+                leave-to-class="-translate-y-1 opacity-0">
+                <div v-show="mostrarFiltros"
+                    class="border-b border-gray-200 bg-white px-3 py-3 sm:px-4 dark:border-gray-700 dark:bg-gray-900">
+                    <div class="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
                         <div class="flex flex-col gap-0.5">
-                            <label
-                                class="text-xs font-semibold text-gray-400 uppercase"
-                                >Conductor</label
-                            >
-                            <ComboFilter
-                                v-model="filtroConductor"
-                                :options="opciones.conductores"
-                                placeholder="Nombre"
-                            />
+                            <label class="text-xs font-semibold text-gray-400 uppercase">Conductor</label>
+                            <ComboFilter v-model="filtroConductor" :options="opciones.conductores"
+                                placeholder="Nombre" />
                         </div>
                         <div class="flex flex-col gap-0.5">
-                            <label
-                                class="text-xs font-semibold text-gray-400 uppercase"
-                                >Placa</label
-                            >
-                            <ComboFilter
-                                v-model="filtroPlaca"
-                                :options="opciones.placas"
-                                placeholder="Placa"
-                            />
+                            <label class="text-xs font-semibold text-gray-400 uppercase">Placa</label>
+                            <ComboFilter v-model="filtroPlaca" :options="opciones.placas" placeholder="Placa" />
                         </div>
                         <div class="flex flex-col gap-0.5">
-                            <label
-                                class="text-xs font-semibold text-gray-400 uppercase"
-                                >ID Hoja de Ruta</label
-                            >
-                            <input
-                                v-model.trim="filtroId"
-                                type="text"
-                                placeholder="T000001"
-                                class="h-8 w-full rounded-md border border-gray-300 px-2.5 text-sm transition-all duration-200 focus:border-[#b51927] focus:ring-1 focus:ring-[#b51927] focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
-                            />
+                            <label class="text-xs font-semibold text-gray-400 uppercase">ID Hoja de Ruta</label>
+                            <input v-model.trim="filtroId" type="text" placeholder="T000001"
+                                class="h-8 w-full rounded-md border border-gray-300 px-2.5 text-sm transition-all duration-200 focus:border-[#b51927] focus:ring-1 focus:ring-[#b51927] focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200" />
                         </div>
                         <div class="flex flex-col gap-0.5">
-                            <label
-                                class="text-xs font-semibold text-gray-400 uppercase"
-                                >Estado</label
-                            >
-                            <select
-                                v-model="filtroEstado"
-                                class="h-8 w-full rounded-md border border-gray-300 px-2.5 text-sm transition-all duration-200 focus:border-[#b51927] focus:ring-1 focus:ring-[#b51927] focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
-                            >
+                            <label class="text-xs font-semibold text-gray-400 uppercase">Estado</label>
+                            <select v-model="filtroEstado"
+                                class="h-8 w-full rounded-md border border-gray-300 px-2.5 text-sm transition-all duration-200 focus:border-[#b51927] focus:ring-1 focus:ring-[#b51927] focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200">
                                 <option value="">Todos</option>
-                                <option
-                                    v-for="opt in opciones.estados"
-                                    :key="opt.value"
-                                    :value="opt.value"
-                                >
+                                <option v-for="opt in opciones.estados" :key="opt.value" :value="opt.value">
                                     {{ opt.label }}
                                 </option>
                             </select>
                         </div>
                         <div class="flex flex-col gap-0.5">
-                            <label
-                                class="text-xs font-semibold text-gray-400 uppercase"
-                                >Geocerca</label
-                            >
-                            <ComboFilter
-                                v-model="filtroGeocerca"
-                                :options="opciones.geocercas"
-                                placeholder="Geocerca"
-                            />
+                            <label class="text-xs font-semibold text-gray-400 uppercase">Geocerca</label>
+                            <ComboFilter v-model="filtroGeocerca" :options="opciones.geocercas"
+                                placeholder="Geocerca" />
                         </div>
                         <div class="flex flex-col gap-0.5">
-                            <label
-                                class="text-xs font-semibold text-gray-400 uppercase"
-                                >Desde</label
-                            >
-                            <input
-                                v-model="filtroDesde"
-                                type="date"
-                                class="h-8 w-full rounded-md border border-gray-300 px-2.5 text-sm transition-all duration-200 focus:border-[#b51927] focus:ring-1 focus:ring-[#b51927] focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
-                            />
+                            <label class="text-xs font-semibold text-gray-400 uppercase">Desde</label>
+                            <input v-model="filtroDesde" type="date"
+                                class="h-8 w-full rounded-md border border-gray-300 px-2.5 text-sm transition-all duration-200 focus:border-[#b51927] focus:ring-1 focus:ring-[#b51927] focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200" />
                         </div>
                         <div class="flex flex-col gap-0.5">
-                            <label
-                                class="text-xs font-semibold text-gray-400 uppercase"
-                                >Hasta</label
-                            >
-                            <input
-                                v-model="filtroHasta"
-                                type="date"
-                                class="h-8 w-full rounded-md border border-gray-300 px-2.5 text-sm transition-all duration-200 focus:border-[#b51927] focus:ring-1 focus:ring-[#b51927] focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
-                            />
+                            <label class="text-xs font-semibold text-gray-400 uppercase">Hasta</label>
+                            <input v-model="filtroHasta" type="date"
+                                class="h-8 w-full rounded-md border border-gray-300 px-2.5 text-sm transition-all duration-200 focus:border-[#b51927] focus:ring-1 focus:ring-[#b51927] focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200" />
                         </div>
                     </div>
                 </div>
@@ -514,55 +431,24 @@ watch(
 
             <!-- Métricas -->
             <div
-                class="grid grid-cols-2 gap-2 border-b border-gray-200 p-2 sm:gap-3 sm:p-3 md:grid-cols-4 dark:border-gray-700"
-            >
-                <MetricaCard
-                    label="Hojas de Ruta"
-                    :valor="metricas.total"
-                    tono="slate"
-                    variante="solido"
-                    :unidades="metricas.totalUnidades ?? []"
-                    alinear="izquierda"
-                    :cargando="mostrandoSkeletonInicial"
-                />
-                <MetricaCard
-                    label="En Ruta"
-                    :valor="metricas.enRuta"
-                    tono="blue"
-                    variante="solido"
-                    :unidades="metricas.enRutaUnidades ?? []"
-                    alinear="derecha-izquierda"
-                    :cargando="mostrandoSkeletonInicial"
-                />
-                <MetricaCard
-                    label="Finalizadas"
-                    :valor="metricas.finalizadas"
-                    tono="emerald"
-                    variante="solido"
-                    :unidades="metricas.finalizadasUnidades ?? []"
-                    alinear="izquierda-derecha"
-                    :cargando="mostrandoSkeletonInicial"
-                />
-                <MetricaCard
-                    label="Registradas Hoy"
-                    :valor="metricas.hoy"
-                    tono="amber"
-                    variante="solido"
-                    :unidades="metricas.hoyUnidades ?? []"
-                    label-pequeno
-                    alinear="derecha"
-                    :cargando="mostrandoSkeletonInicial"
-                />
+                class="grid grid-cols-2 gap-2 border-b border-gray-200 p-2 sm:gap-3 sm:p-3 md:grid-cols-4 dark:border-gray-700">
+                <MetricaCard label="Hojas de Ruta" :valor="metricas.total" tono="slate" variante="solido"
+                    :unidades="metricas.totalUnidades ?? []" alinear="izquierda" :cargando="mostrandoSkeletonInicial" />
+                <MetricaCard label="En Ruta" :valor="metricas.enRuta" tono="blue" variante="solido"
+                    :unidades="metricas.enRutaUnidades ?? []" alinear="derecha-izquierda"
+                    :cargando="mostrandoSkeletonInicial" />
+                <MetricaCard label="Finalizadas" :valor="metricas.finalizadas" tono="emerald" variante="solido"
+                    :unidades="metricas.finalizadasUnidades ?? []" alinear="izquierda-derecha"
+                    :cargando="mostrandoSkeletonInicial" />
+                <MetricaCard label="Registradas Hoy" :valor="metricas.hoy" tono="amber" variante="solido"
+                    :unidades="metricas.hoyUnidades ?? []" label-pequeno alinear="derecha"
+                    :cargando="mostrandoSkeletonInicial" />
             </div>
 
             <!-- Tabla -->
-            <div
-                class="relative flex-1 overflow-x-auto bg-white dark:bg-gray-900"
-            >
-                <div
-                    v-if="cargando && !mostrandoSkeletonInicial"
-                    class="absolute inset-0 z-10 flex items-center justify-center bg-white/70 dark:bg-gray-900/70"
-                >
+            <div class="relative flex-1 overflow-x-auto bg-white dark:bg-gray-900">
+                <div v-if="cargando && !mostrandoSkeletonInicial"
+                    class="absolute inset-0 z-10 flex items-center justify-center bg-white/70 dark:bg-gray-900/70">
                     <Loader2 class="h-8 w-8 animate-spin text-[#b51927]" />
                 </div>
 
@@ -585,20 +471,11 @@ watch(
                     </thead>
                     <tbody>
                         <template v-if="mostrandoSkeletonInicial">
-                            <tr
-                                v-for="n in 8"
-                                :key="`skeleton-row-${n}`"
-                                class="border-b border-gray-100 dark:border-gray-800"
-                            >
-                                <td
-                                    v-for="(ancho, i) in ANCHOS_SKELETON"
-                                    :key="i"
-                                    class="px-1.5 py-1.5"
-                                >
-                                    <div
-                                        class="mx-auto h-5 animate-pulse rounded-md bg-gray-200 dark:bg-gray-700"
-                                        :style="{ width: ancho }"
-                                    />
+                            <tr v-for="n in 8" :key="`skeleton-row-${n}`"
+                                class="border-b border-gray-100 dark:border-gray-800">
+                                <td v-for="(ancho, i) in ANCHOS_SKELETON" :key="i" class="px-1.5 py-1.5">
+                                    <div class="mx-auto h-5 animate-pulse rounded-md bg-gray-200 dark:bg-gray-700"
+                                        :style="{ width: ancho }" />
                                 </td>
                             </tr>
                         </template>
@@ -608,121 +485,90 @@ watch(
                                 <p class="text-sm font-medium text-gray-500">
                                     Sin resultados
                                 </p>
-                                <p
-                                    v-if="filtrosActivos"
-                                    class="mt-1 text-xs text-gray-400"
-                                >
+                                <p v-if="filtrosActivos" class="mt-1 text-xs text-gray-400">
                                     No hay hojas de ruta que coincidan con los
                                     filtros aplicados.
                                 </p>
                             </td>
                         </tr>
 
-                        <tr
-                            v-for="item in rutas"
-                            :key="item.id"
+                        <tr v-for="item in rutas" :key="item.id"
                             class="cursor-pointer border-b border-gray-100 bg-white transition-colors hover:bg-[#b51927]/5 dark:border-gray-800 dark:bg-gray-900 dark:hover:bg-gray-800/50"
-                            @click="seleccionada = item"
-                        >
-                            <td
-                                :class="[
-                                    TD,
-                                    'font-mono font-semibold text-[#b51927]',
-                                ]"
-                            >
+                            @click="seleccionada = item">
+                            <td :class="[
+                                TD,
+                                'font-mono font-semibold text-[#b51927]',
+                            ]">
                                 {{ item.hoja ?? '-' }}
                             </td>
-                            <td
-                                :class="[
-                                    TD,
-                                    'font-semibold tracking-wide text-gray-900 dark:text-gray-100',
-                                ]"
-                            >
+                            <td :class="[
+                                TD,
+                                'font-semibold tracking-wide text-gray-900 dark:text-gray-100',
+                            ]">
                                 {{ item.placa?.trim() || '-' }}
                             </td>
-                            <td
-                                :class="[
-                                    TD,
-                                    'text-gray-700 dark:text-gray-300',
-                                ]"
-                            >
+                            <td :class="[
+                                TD,
+                                'text-gray-700 dark:text-gray-300',
+                            ]">
                                 <span :title="item.conductor ?? undefined">{{
                                     truncar(item.conductor)
-                                }}</span>
+                                    }}</span>
                             </td>
-                            <td
-                                :class="[
-                                    TD,
-                                    'text-gray-600 dark:text-gray-400',
-                                ]"
-                            >
+                            <td :class="[
+                                TD,
+                                'text-gray-600 dark:text-gray-400',
+                            ]">
                                 <span :title="item.copiloto ?? undefined">{{
                                     truncar(item.copiloto)
-                                }}</span>
+                                    }}</span>
                             </td>
-                            <td
-                                :class="[
-                                    TD,
-                                    'text-gray-600 dark:text-gray-400',
-                                ]"
-                            >
+                            <td :class="[
+                                TD,
+                                'text-gray-600 dark:text-gray-400',
+                            ]">
                                 {{ item.carreta?.trim() || '-' }}
                             </td>
-                            <td
-                                :class="[
-                                    TD,
-                                    'text-gray-600 dark:text-gray-400',
-                                ]"
-                            >
+                            <td :class="[
+                                TD,
+                                'text-gray-600 dark:text-gray-400',
+                            ]">
                                 {{ item.precintos?.trim() || '-' }}
                             </td>
-                            <td
-                                :class="[
-                                    TD,
-                                    'text-gray-600 dark:text-gray-400',
-                                ]"
-                            >
+                            <td :class="[
+                                TD,
+                                'text-gray-600 dark:text-gray-400',
+                            ]">
                                 <span :title="item.geocerca ?? undefined">{{
                                     truncar(item.geocerca, 18)
-                                }}</span>
+                                    }}</span>
                             </td>
-                            <td
-                                :class="[
-                                    TD,
-                                    'text-gray-600 dark:text-gray-400',
-                                ]"
-                            >
+                            <td :class="[
+                                TD,
+                                'text-gray-600 dark:text-gray-400',
+                            ]">
                                 {{ item.km_inicial ?? '-' }}
                             </td>
-                            <td
-                                :class="[
-                                    TD,
-                                    'whitespace-nowrap text-gray-600 dark:text-gray-400',
-                                ]"
-                            >
+                            <td :class="[
+                                TD,
+                                'whitespace-nowrap text-gray-600 dark:text-gray-400',
+                            ]">
                                 {{ item.fh_inicio ?? '-' }}
                             </td>
-                            <td
-                                :class="[
-                                    TD,
-                                    'text-gray-600 dark:text-gray-400',
-                                ]"
-                            >
+                            <td :class="[
+                                TD,
+                                'text-gray-600 dark:text-gray-400',
+                            ]">
                                 {{ item.km_final ?? '-' }}
                             </td>
-                            <td
-                                :class="[
-                                    TD,
-                                    'whitespace-nowrap text-gray-600 dark:text-gray-400',
-                                ]"
-                            >
+                            <td :class="[
+                                TD,
+                                'whitespace-nowrap text-gray-600 dark:text-gray-400',
+                            ]">
                                 {{ item.fh_final ?? '-' }}
                             </td>
                             <td :class="TD">
-                                <EstadoBadge
-                                    :estado="item.estado"
-                                    :label="item.estado_label"
-                                />
+                                <EstadoBadge :estado="item.estado" :label="item.estado_label" />
                             </td>
                         </tr>
                     </tbody>
@@ -731,85 +577,51 @@ watch(
 
             <!-- Paginación -->
             <div
-                class="grid grid-cols-2 items-center gap-x-2 gap-y-1.5 border-t border-gray-200 bg-gray-50 px-4 py-2.5 sm:grid-cols-3 sm:gap-2 dark:border-gray-700 dark:bg-gray-800"
-            >
+                class="grid grid-cols-2 items-center gap-x-2 gap-y-1.5 border-t border-gray-200 bg-gray-50 px-4 py-2.5 sm:grid-cols-3 sm:gap-2 dark:border-gray-700 dark:bg-gray-800">
                 <div class="order-2 flex items-center gap-2 sm:order-1">
                     <label class="text-sm text-gray-500">Filas:</label>
-                    <select
-                        v-model.number="filasPorPagina"
-                        class="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
-                    >
-                        <option
-                            v-for="n in opciones.porPagina"
-                            :key="n"
-                            :value="n"
-                        >
+                    <select v-model.number="filasPorPagina"
+                        class="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                        <option v-for="n in opciones.porPagina" :key="n" :value="n">
                             {{ n }}
                         </option>
                     </select>
                 </div>
-                <div
-                    class="order-1 col-span-2 flex items-center justify-center gap-1 sm:order-2 sm:col-span-1"
-                >
+                <div class="order-1 col-span-2 flex items-center justify-center gap-1 sm:order-2 sm:col-span-1">
                     <button
                         class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white p-1.5 transition hover:bg-gray-100 disabled:opacity-40 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
-                        :disabled="paginaMeta.actual <= 1 || cargando"
-                        title="Primera página"
-                        @click="recargar(1)"
-                    >
+                        :disabled="paginaMeta.actual <= 1 || cargando" title="Primera página" @click="recargar(1)">
                         <ChevronsLeft class="h-4 w-4" />
                     </button>
                     <button
                         class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white p-1.5 transition hover:bg-gray-100 disabled:opacity-40 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
-                        :disabled="paginaMeta.actual <= 1 || cargando"
-                        title="Página anterior"
-                        @click="recargar(paginaMeta.actual - 1)"
-                    >
+                        :disabled="paginaMeta.actual <= 1 || cargando" title="Página anterior"
+                        @click="recargar(paginaMeta.actual - 1)">
                         <ChevronLeft class="h-4 w-4" />
                     </button>
 
-                    <template
-                        v-for="(p, i) in paginasVisibles"
-                        :key="p === '...' ? `e${i}` : p"
-                    >
-                        <span
-                            v-if="p === '...'"
-                            class="px-1 text-sm text-gray-400"
-                            >…</span
-                        >
-                        <button
-                            v-else
+                    <template v-for="(p, i) in paginasVisibles" :key="p === '...' ? `e${i}` : p">
+                        <span v-if="p === '...'" class="px-1 text-sm text-gray-400">…</span>
+                        <button v-else
                             class="inline-flex h-7 min-w-[28px] items-center justify-center rounded-md border px-1.5 text-sm transition"
-                            :class="
-                                p === paginaMeta.actual
+                            :class="p === paginaMeta.actual
                                     ? 'border-[#b51927] bg-[#b51927] font-semibold text-white'
                                     : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-                            "
-                            :disabled="cargando"
-                            @click="recargar(p as number)"
-                        >
+                                " :disabled="cargando" @click="recargar(p as number)">
                             {{ p }}
                         </button>
                     </template>
 
                     <button
                         class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white p-1.5 transition hover:bg-gray-100 disabled:opacity-40 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
-                        :disabled="
-                            paginaMeta.actual >= paginaMeta.total || cargando
-                        "
-                        title="Página siguiente"
-                        @click="recargar(paginaMeta.actual + 1)"
-                    >
+                        :disabled="paginaMeta.actual >= paginaMeta.total || cargando
+                            " title="Página siguiente" @click="recargar(paginaMeta.actual + 1)">
                         <ChevronRight class="h-4 w-4" />
                     </button>
                     <button
                         class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white p-1.5 transition hover:bg-gray-100 disabled:opacity-40 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
-                        :disabled="
-                            paginaMeta.actual >= paginaMeta.total || cargando
-                        "
-                        title="Última página"
-                        @click="recargar(paginaMeta.total)"
-                    >
+                        :disabled="paginaMeta.actual >= paginaMeta.total || cargando
+                            " title="Última página" @click="recargar(paginaMeta.total)">
                         <ChevronsRight class="h-4 w-4" />
                     </button>
                 </div>
@@ -821,23 +633,14 @@ watch(
     </div>
 
     <!-- Modal detalle de la hoja de ruta -->
-    <Dialog
-        :open="seleccionada !== null"
-        @update:open="(v: boolean) => !v && (seleccionada = null)"
-    >
-        <DialogContent
-            class="max-h-[88vh] w-[min(96vw,1400px)] max-w-[96vw] overflow-y-auto sm:max-w-[1400px]"
-        >
+    <Dialog :open="seleccionada !== null" @update:open="(v: boolean) => !v && (seleccionada = null)">
+        <DialogContent class="max-h-[88vh] w-[min(96vw,1400px)] max-w-[96vw] overflow-y-auto sm:max-w-[1400px]">
             <DialogHeader>
                 <DialogTitle class="flex items-center gap-3">
                     <span class="font-mono text-[#b51927]">
                         {{ seleccionada?.hoja }}
                     </span>
-                    <EstadoBadge
-                        v-if="seleccionada"
-                        :estado="seleccionada.estado"
-                        :label="seleccionada.estado_label"
-                    />
+                    <EstadoBadge v-if="seleccionada" :estado="seleccionada.estado" :label="seleccionada.estado_label" />
                 </DialogTitle>
             </DialogHeader>
 
@@ -845,37 +648,20 @@ watch(
             <DropdownMenu v-if="puedeExportar">
                 <DropdownMenuTrigger
                     class="absolute top-3.5 right-12 inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
-                    :disabled="exportando"
-                    title="Exportar esta hoja de ruta"
-                >
-                    <Loader2
-                        v-if="exportando"
-                        class="h-3.5 w-3.5 animate-spin text-[#b51927]"
-                    />
+                    :disabled="exportando" title="Exportar esta hoja de ruta">
+                    <Loader2 v-if="exportando" class="h-3.5 w-3.5 animate-spin text-[#b51927]" />
                     <FileSpreadsheet v-else class="h-3.5 w-3.5" />
                     <ChevronDown class="h-3 w-3" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" class="w-56">
                     <DropdownMenuItem
-                        @click="
-                            exportar(
-                                'excel',
-                                seleccionada?.hoja,
-                                seleccionada?.id,
-                            )
-                        "
+                        @click="exportar('excel', seleccionada?.hoja)"
                     >
                         <FileSpreadsheet class="h-4 w-4 text-emerald-600" />
                         Excel (XLSX)
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                        @click="
-                            exportar(
-                                'pdf',
-                                seleccionada?.hoja,
-                                seleccionada?.id,
-                            )
-                        "
+                        @click="exportar('pdf', seleccionada?.hoja)"
                     >
                         <FileText class="h-4 w-4 text-[#b51927]" />
                         PDF (A4)
@@ -885,17 +671,13 @@ watch(
 
             <div v-if="seleccionada" class="flex min-w-0 flex-col gap-4">
                 <!-- Detalle de la hoja de ruta (tabla única) -->
-                <div
-                    class="min-w-0 overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700"
-                >
+                <div class="min-w-0 overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
                     <table class="w-full table-auto text-xs whitespace-nowrap">
                         <thead>
                             <tr
-                                class="bg-gray-50 text-left text-[10px] font-semibold text-gray-500 uppercase dark:bg-gray-800"
-                            >
+                                class="bg-gray-50 text-left text-[10px] font-semibold text-gray-500 uppercase dark:bg-gray-800">
                                 <th
-                                    class="sticky left-0 z-20 bg-gray-50 px-2.5 py-2 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)] dark:bg-gray-800"
-                                >
+                                    class="sticky left-0 z-20 bg-gray-50 px-2.5 py-2 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)] dark:bg-gray-800">
                                     Conductor
                                 </th>
                                 <th class="px-2.5 py-2">Copiloto</th>
@@ -924,12 +706,9 @@ watch(
                             </tr>
                         </thead>
                         <tbody>
-                            <tr
-                                class="text-gray-700 dark:text-gray-200 [&>td]:px-2.5 [&>td]:py-2"
-                            >
+                            <tr class="text-gray-700 dark:text-gray-200 [&>td]:px-2.5 [&>td]:py-2">
                                 <td
-                                    class="sticky left-0 z-20 bg-white font-semibold shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)] dark:bg-gray-900"
-                                >
+                                    class="sticky left-0 z-20 bg-white font-semibold shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)] dark:bg-gray-900">
                                     {{ seleccionada.conductor ?? '-' }}
                                 </td>
                                 <td>{{ seleccionada.copiloto ?? '-' }}</td>
@@ -943,16 +722,12 @@ watch(
                                 <td>{{ seleccionada.sis_inicial ?? '-' }}</td>
                                 <td>{{ seleccionada.cond_inicial ?? '-' }}</td>
                                 <td>{{ seleccionada.km_inicial ?? '-' }}</td>
-                                <td
-                                    class="font-semibold"
-                                    :class="
-                                        seleccionada.dif_inicial
-                                            ? DIF_CLASE[
-                                                  seleccionada.dif_inicial.signo
-                                              ]
-                                            : 'text-gray-400'
-                                    "
-                                >
+                                <td class="font-semibold" :class="seleccionada.dif_inicial
+                                        ? DIF_CLASE[
+                                        seleccionada.dif_inicial.signo
+                                        ]
+                                        : 'text-gray-400'
+                                    ">
                                     {{ seleccionada.dif_inicial?.texto ?? '-' }}
                                 </td>
                                 <td>
@@ -964,23 +739,16 @@ watch(
                                 <td>{{ seleccionada.sis_final ?? '-' }}</td>
                                 <td>{{ seleccionada.cond_final ?? '-' }}</td>
                                 <td>{{ seleccionada.km_final ?? '-' }}</td>
-                                <td
-                                    class="font-semibold"
-                                    :class="
-                                        seleccionada.dif_final
-                                            ? DIF_CLASE[
-                                                  seleccionada.dif_final.signo
-                                              ]
-                                            : 'text-gray-400'
-                                    "
-                                >
+                                <td class="font-semibold" :class="seleccionada.dif_final
+                                        ? DIF_CLASE[
+                                        seleccionada.dif_final.signo
+                                        ]
+                                        : 'text-gray-400'
+                                    ">
                                     {{ seleccionada.dif_final?.texto ?? '-' }}
                                 </td>
                                 <td>
-                                    <EstadoBadge
-                                        :estado="seleccionada.estado"
-                                        :label="seleccionada.estado_label"
-                                    />
+                                    <EstadoBadge :estado="seleccionada.estado" :label="seleccionada.estado_label" />
                                 </td>
                             </tr>
                         </tbody>
@@ -995,23 +763,18 @@ watch(
                 <!-- Documentos adjuntos -->
                 <div class="min-w-0">
                     <p
-                        class="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-gray-500 uppercase"
-                    >
+                        class="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-gray-500 uppercase">
                         <Paperclip class="h-3.5 w-3.5" />
                         Documentos adjuntos
                         <span class="text-gray-400">
                             ({{ seleccionada.documentos.length }})
                         </span>
                     </p>
-                    <div
-                        v-if="seleccionada.documentos.length > 0"
-                        class="min-w-0 overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700"
-                    >
+                    <div v-if="seleccionada.documentos.length > 0"
+                        class="min-w-0 overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
                         <table class="w-full table-auto text-xs">
                             <thead>
-                                <tr
-                                    class="bg-gray-50 text-[10px] text-gray-500 uppercase dark:bg-gray-800"
-                                >
+                                <tr class="bg-gray-50 text-[10px] text-gray-500 uppercase dark:bg-gray-800">
                                     <th class="px-2 py-1.5 text-left">Tipo</th>
                                     <th class="px-2 py-1.5 text-left">
                                         Documento
@@ -1033,13 +796,8 @@ watch(
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody
-                                class="divide-y divide-gray-100 dark:divide-gray-800"
-                            >
-                                <tr
-                                    v-for="(doc, i) in seleccionada.documentos"
-                                    :key="i"
-                                >
+                            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                                <tr v-for="(doc, i) in seleccionada.documentos" :key="i">
                                     <td class="px-2 py-1.5">
                                         {{ doc.tipo ?? '-' }}
                                     </td>
@@ -1060,26 +818,20 @@ watch(
                                     </td>
                                     <td class="px-2 py-1.5 text-center">
                                         <span v-if="doc.imagen">📎</span>
-                                        <span v-else class="text-gray-300"
-                                            >—</span
-                                        >
+                                        <span v-else class="text-gray-300">—</span>
                                     </td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
-                    <p
-                        v-else
-                        class="rounded-lg border border-dashed border-gray-200 py-3 text-center text-xs text-gray-400 dark:border-gray-700"
-                    >
+                    <p v-else
+                        class="rounded-lg border border-dashed border-gray-200 py-3 text-center text-xs text-gray-400 dark:border-gray-700">
                         Sin documentos adjuntos.
                     </p>
                 </div>
 
-                <p
-                    v-if="seleccionada.observacion"
-                    class="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-900/20 dark:text-amber-300"
-                >
+                <p v-if="seleccionada.observacion"
+                    class="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
                     <span class="font-semibold">Observación:</span>
                     {{ seleccionada.observacion }}
                 </p>

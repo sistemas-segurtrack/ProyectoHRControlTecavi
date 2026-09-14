@@ -32,7 +32,11 @@ class RutasController extends Controller
     public function __construct(private readonly ConsultaHojasRuta $hojas) {}
 
     /**
-     * Listado de hojas de ruta (datos Tecavi) con filtros, métricas y paginación.
+     * Listado de hojas de ruta (datos Tecavi) con filtros, métricas y
+     * paginación — una fila por HOJA completa (`ConsultaHojasRuta::baseQueryPorRuta()`),
+     * no por tramo: "Km/Fecha Hora Inicio" son la primera parada registrada,
+     * "Km/Fecha Hora Final" la última hasta ahora, y "Estado" es
+     * `ruta.estado` tal cual (no el de ningún tramo).
      *
      * Sin sesión (o con una que no tenga el rol adecuado) esta misma ruta
      * hace de "puerta": en vez de que el middleware `auth` redirija a
@@ -53,16 +57,16 @@ class RutasController extends Controller
             $porPagina = 25;
         }
 
-        $paginador = $this->hojas->baseQuery($filtros)
-            ->orderByDesc('detalleruta.fhRegistro')
-            ->orderByDesc('detalleruta.iddetalleRuta')
+        $paginador = $this->hojas->baseQueryPorRuta($filtros)
+            ->orderByDesc('fh_final')
+            ->orderByDesc('ruta.idruta')
             ->paginate($porPagina)
             ->withQueryString();
 
-        $documentos = $this->hojas->documentosDe(collect($paginador->items()));
+        $documentos = $this->hojas->documentosPorRuta(collect($paginador->items()));
 
         $rutas = collect($paginador->items())
-            ->map(fn (DetalleRuta $hoja): array => $this->hojas->transformar($hoja, $documentos))
+            ->map(fn (Ruta $hoja): array => $this->hojas->transformarRuta($hoja, $documentos))
             ->values();
 
         return Inertia::render('Frontend/Modulos/Rutas/Index', [
@@ -82,7 +86,7 @@ class RutasController extends Controller
                     ->distinct()->orderBy('piloto')->pluck('piloto'),
                 'geocercas' => DetalleRuta::query()->whereNotNull('geocerca')->where('geocerca', '!=', '')
                     ->distinct()->orderBy('geocerca')->pluck('geocerca'),
-                'estados' => collect(ConsultaHojasRuta::ESTADOS)->map(fn (string $label, string $value) => [
+                'estados' => collect(ConsultaHojasRuta::ESTADOS_RUTA)->map(fn (string $label, string $value) => [
                     'value' => $value,
                     'label' => $label,
                 ])->values(),
@@ -108,7 +112,7 @@ class RutasController extends Controller
                 'placas' => [],
                 'conductores' => [],
                 'geocercas' => [],
-                'estados' => collect(ConsultaHojasRuta::ESTADOS)->map(fn (string $label, string $value) => [
+                'estados' => collect(ConsultaHojasRuta::ESTADOS_RUTA)->map(fn (string $label, string $value) => [
                     'value' => $value,
                     'label' => $label,
                 ])->values(),
@@ -129,6 +133,8 @@ class RutasController extends Controller
 
     /**
      * Métricas del conjunto filtrado (con listas de unidades para el popover).
+     * Cuenta por `ruta.estado` (una hoja = una unidad de conteo), igual que
+     * ahora el listado — "Registradas Hoy" es la fecha de la primera parada.
      *
      * @param  array<string, string>  $filtros
      * @return array<string, mixed>
@@ -137,12 +143,11 @@ class RutasController extends Controller
     {
         $hoy = now()->toDateString();
 
-        $filas = $this->hojas->baseQuery($filtros)
+        $filas = $this->hojas->baseQueryPorRuta($filtros)
             ->reorder()
-            ->orderByDesc('detalleruta.fhRegistro')
             ->limit(3000)
             ->get()
-            ->map(function (DetalleRuta $hoja): array {
+            ->map(function (Ruta $hoja): array {
                 /** @var array<string, mixed> $row */
                 $row = $hoja->getAttributes();
 
@@ -153,15 +158,15 @@ class RutasController extends Controller
                         : Carbon::parse((string) $row['fh_inicio'])->toDateString(),
                     'unidad' => [
                         'vehiculo' => $row['placa'] ?? null,
-                        'ruta' => $row['ruta_idruta'] ?? null,
+                        'ruta' => $row['idruta'] ?? null,
                     ],
                 ];
             });
 
         $unidades = fn ($coleccion) => $coleccion->pluck('unidad')->values();
 
-        $enRuta = $filas->where('estado', DetalleRuta::EN_RUTA);
-        $finalizadas = $filas->where('estado', DetalleRuta::FINALIZADO);
+        $enRuta = $filas->where('estado', Ruta::ACTIVA);
+        $finalizadas = $filas->where('estado', Ruta::FINALIZADA);
         $delDia = $filas->where('dia', $hoy);
 
         return [

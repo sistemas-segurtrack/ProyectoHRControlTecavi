@@ -93,12 +93,10 @@ test('el filtro ID Hoja de Ruta busca por el código de la ruta', function () {
         );
 });
 
-test('el km y la fecha final se toman del siguiente orden (mismo tramo)', function () {
+test('el km y la fecha final se toman de la última parada registrada', function () {
     $ruta = Ruta::factory()->create();
     $contacto = Contacto::factory()->create();
 
-    // Orden 1 (impar) = inicio del tramo; orden 2 (par) = su fin — un solo
-    // tramo, una sola fila.
     DetalleRuta::factory()->for($contacto, 'contacto')->create([
         'ruta_idruta' => $ruta->idruta,
         'orden' => 1,
@@ -123,7 +121,7 @@ test('el km y la fecha final se toman del siguiente orden (mismo tramo)', functi
         );
 });
 
-test('un tramo sin cerrar (parada impar sin su par) no tiene datos finales', function () {
+test('con una sola parada, el km final es el mismo que el inicial (todavía no hay otra)', function () {
     $ruta = Ruta::factory()->create();
     $contacto = Contacto::factory()->create();
 
@@ -138,30 +136,39 @@ test('un tramo sin cerrar (parada impar sin su par) no tiene datos finales', fun
         ->assertInertia(fn (Assert $page) => $page
             ->has('rutas', 1)
             ->where('rutas.0.km_inicial', '100')
-            ->where('rutas.0.km_final', null)
+            ->where('rutas.0.km_final', '100')
         );
 });
 
-test('una parada par no aparece como fila propia (ya es el final de su impar)', function () {
+test('una hoja con varios tramos es UNA sola fila (no una por tramo ni por parada)', function () {
     $ruta = Ruta::factory()->create();
     $contacto = Contacto::factory()->create();
 
-    DetalleRuta::factory()->for($contacto, 'contacto')->create(['ruta_idruta' => $ruta->idruta, 'orden' => 1]);
-    DetalleRuta::factory()->for($contacto, 'contacto')->create(['ruta_idruta' => $ruta->idruta, 'orden' => 2]);
-    // Tramo 2: orden 3 (impar, sin cerrar todavía).
-    DetalleRuta::factory()->for($contacto, 'contacto')->create(['ruta_idruta' => $ruta->idruta, 'orden' => 3]);
+    DetalleRuta::factory()->for($contacto, 'contacto')->create([
+        'ruta_idruta' => $ruta->idruta, 'orden' => 1, 'kilometraje' => '100',
+        'fhRegistro' => '2026-01-01 08:00:00',
+    ]);
+    DetalleRuta::factory()->for($contacto, 'contacto')->create([
+        'ruta_idruta' => $ruta->idruta, 'orden' => 2, 'kilometraje' => '150',
+        'fhRegistro' => '2026-01-01 10:00:00',
+    ]);
+    // Tramo 2: orden 3 (impar, sin cerrar todavía) -- es la última parada
+    // registrada, así que sus datos son los que salen como "Final".
+    DetalleRuta::factory()->for($contacto, 'contacto')->create([
+        'ruta_idruta' => $ruta->idruta, 'orden' => 3, 'kilometraje' => '200',
+        'fhRegistro' => '2026-01-01 12:00:00',
+    ]);
 
     $this->actingAs(crearAdmin())
         ->get(route('modulos.rutas.index'))
         ->assertInertia(fn (Assert $page) => $page
-            // Dos tramos: (1,2) y (3, sin cerrar) — no tres filas.
-            ->has('rutas', 2)
-            // Mismo "ID Hoja de Ruta" en ambas filas — el número de tramo es
-            // lo que distingue que no es un duplicado.
+            ->has('rutas', 1)
             ->where('rutas.0.hoja', $ruta->idruta)
-            ->where('rutas.0.tramo', 2)
-            ->where('rutas.1.hoja', $ruta->idruta)
-            ->where('rutas.1.tramo', 1)
+            // Inicial = primera parada de toda la hoja (orden 1).
+            ->where('rutas.0.km_inicial', '100')
+            // Final = última parada registrada hasta ahora (orden 3), sea o
+            // no el cierre de un tramo.
+            ->where('rutas.0.km_final', '200')
         );
 });
 
@@ -179,6 +186,57 @@ test('el filtro por placa acota los resultados', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->has('rutas', 1)
             ->where('rutas.0.placa', 'AAA-111')
+        );
+});
+
+test('el Estado de la fila es el de la tabla ruta, no el del tramo', function () {
+    $contacto = Contacto::factory()->create();
+    $activa = Ruta::factory()->create(['idruta' => 'T000501', 'estado' => Ruta::ACTIVA]);
+    $finalizada = Ruta::factory()->create(['idruta' => 'T000502', 'estado' => Ruta::FINALIZADA]);
+
+    // Los dos tramos de "activa" ya están cerrados a nivel de detalle (FI),
+    // pero la hoja en sí sigue "EN RUTA" mientras no llegue el documento que
+    // la cierra -- confirmado antes en esta misma sesión.
+    DetalleRuta::factory()->for($contacto, 'contacto')->create([
+        'ruta_idruta' => $activa->idruta, 'orden' => 1, 'estado' => DetalleRuta::FINALIZADO,
+        'fhRegistro' => '2026-01-01 08:00:00',
+    ]);
+    DetalleRuta::factory()->for($contacto, 'contacto')->create([
+        'ruta_idruta' => $activa->idruta, 'orden' => 2, 'estado' => DetalleRuta::FINALIZADO,
+        'fhRegistro' => '2026-01-01 09:00:00',
+    ]);
+    DetalleRuta::factory()->for($contacto, 'contacto')->create([
+        'ruta_idruta' => $finalizada->idruta, 'orden' => 1, 'estado' => DetalleRuta::FINALIZADO,
+        'fhRegistro' => '2026-01-01 10:00:00',
+    ]);
+
+    $this->actingAs(crearAdmin())
+        ->get(route('modulos.rutas.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('rutas', 2)
+            ->where('rutas.0.hoja', 'T000502')
+            ->where('rutas.0.estado', Ruta::FINALIZADA)
+            ->where('rutas.0.estado_label', 'FINALIZADA')
+            ->where('rutas.1.hoja', 'T000501')
+            ->where('rutas.1.estado', Ruta::ACTIVA)
+            ->where('rutas.1.estado_label', 'EN RUTA')
+            ->where('metricas.enRuta', 1)
+            ->where('metricas.finalizadas', 1)
+        );
+});
+
+test('el filtro Estado busca por ruta.estado', function () {
+    $contacto = Contacto::factory()->create();
+    $activa = Ruta::factory()->create(['estado' => Ruta::ACTIVA]);
+    $finalizada = Ruta::factory()->create(['estado' => Ruta::FINALIZADA]);
+    DetalleRuta::factory()->for($contacto, 'contacto')->create(['ruta_idruta' => $activa->idruta, 'orden' => 1]);
+    DetalleRuta::factory()->for($contacto, 'contacto')->create(['ruta_idruta' => $finalizada->idruta, 'orden' => 1]);
+
+    $this->actingAs(crearAdmin())
+        ->get(route('modulos.rutas.index', ['estado' => Ruta::FINALIZADA]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('rutas', 1)
+            ->where('rutas.0.hoja', $finalizada->idruta)
         );
 });
 

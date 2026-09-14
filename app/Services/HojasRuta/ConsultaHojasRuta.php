@@ -3,6 +3,7 @@
 namespace App\Services\HojasRuta;
 
 use App\Models\HRControl\DetalleRuta;
+use App\Models\HRControl\Ruta;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -24,6 +25,18 @@ class ConsultaHojasRuta
     public const ESTADOS = [
         DetalleRuta::EN_RUTA => 'EN RUTA',
         DetalleRuta::FINALIZADO => 'FINALIZADO',
+    ];
+
+    /**
+     * Estados de la hoja de ruta en sí (`ruta.estado`) — a diferencia de
+     * `ESTADOS` de arriba, que son por tramo/detalle. Usado por el listado
+     * principal (una fila por ruta, ver `baseQueryPorRuta()`).
+     *
+     * @var array<string, string>
+     */
+    public const ESTADOS_RUTA = [
+        Ruta::ACTIVA => 'EN RUTA',
+        Ruta::FINALIZADA => 'FINALIZADA',
     ];
 
     /**
@@ -160,6 +173,180 @@ class ConsultaHojasRuta
             ->when($filtros['hasta'] !== '', fn ($q) => $q->whereDate('detalleruta.fhRegistro', '<=', $filtros['hasta']))
             ->when($filtros['estado'] !== '', fn ($q) => $q->where('detalleruta.estado', $filtros['estado']))
             ->when($filtros['geocerca'] !== '', fn ($q) => $q->where('detalleruta.geocerca', 'like', "%{$filtros['geocerca']}%"));
+    }
+
+    /**
+     * Query del listado principal: una fila por HOJA DE RUTA completa (no por
+     * tramo ni por parada) — a diferencia de `baseQuery()`, que sigue siendo
+     * por tramo (la usan el export y el "hoja puntual" del modal, sin
+     * cambios). "Km/Fecha Inicial" salen de la primera parada de la hoja
+     * (`orden` mínimo), "Km/Fecha Final" de la última registrada hasta ahora
+     * (`orden` máximo) — sea o no el fin de un tramo cerrado — y el estado es
+     * `ruta.estado` tal cual, no el de ningún tramo en particular.
+     *
+     * @param  array<string, string>  $filtros
+     * @return Builder<Ruta>
+     */
+    public function baseQueryPorRuta(array $filtros): Builder
+    {
+        $primero = fn (string $columna) => DetalleRuta::query()
+            ->select($columna)
+            ->whereColumn('ruta_idruta', 'ruta.idruta')
+            ->orderBy('orden')
+            ->limit(1);
+
+        $ultimo = fn (string $columna) => DetalleRuta::query()
+            ->select($columna)
+            ->whereColumn('ruta_idruta', 'ruta.idruta')
+            ->orderByDesc('orden')
+            ->limit(1);
+
+        return Ruta::query()
+            ->select([
+                'ruta.idruta',
+                'ruta.placa',
+                'ruta.piloto',
+                'ruta.copiloto',
+                'ruta.precintos',
+                'ruta.carreta',
+                'ruta.estado',
+            ])
+            ->selectSub($primero('geocerca'), 'geocerca_inicial')
+            ->selectSub($primero('coordenada'), 'coordenada_inicial')
+            ->selectSub($primero('observacion'), 'observacion')
+            ->selectSub($primero('kilometraje'), 'km_inicial')
+            ->selectSub($primero('fhRegistro'), 'fh_inicio')
+            ->selectSub($primero('fhIndicado'), 'fh_indicado_inicial')
+            ->selectSub($ultimo('geocerca'), 'geocerca_final')
+            ->selectSub($ultimo('coordenada'), 'coordenada_final')
+            ->selectSub($ultimo('kilometraje'), 'km_final')
+            ->selectSub($ultimo('fhRegistro'), 'fh_final')
+            ->selectSub($ultimo('fhIndicado'), 'fh_indicado_final')
+            ->when($filtros['conductor'] !== '', fn ($q) => $q->where('ruta.piloto', 'like', "%{$filtros['conductor']}%"))
+            ->when($filtros['placa'] !== '', fn ($q) => $q->where('ruta.placa', 'like', "%{$filtros['placa']}%"))
+            ->when($filtros['id'] !== '', fn ($q) => $q->where('ruta.idruta', 'like', "%{$filtros['id']}%"))
+            ->when(($filtros['hoja'] ?? '') !== '', fn ($q) => $q->where('ruta.idruta', $filtros['hoja']))
+            ->when($filtros['estado'] !== '', fn ($q) => $q->where('ruta.estado', $filtros['estado']))
+            // Cualquier parada de la ruta, no solo la primera/última.
+            ->when($filtros['geocerca'] !== '', fn ($q) => $q->whereExists(
+                fn ($sub) => $sub->select(DB::raw(1))
+                    ->from('detalleruta as busca_geo')
+                    ->whereColumn('busca_geo.ruta_idruta', 'ruta.idruta')
+                    ->where('busca_geo.geocerca', 'like', "%{$filtros['geocerca']}%")
+            ))
+            // "Desde"/"Hasta" acotan por la fecha de la PRIMERA parada (cuándo
+            // se creó la hoja), igual que la columna "Fecha Hora Inicio".
+            ->when($filtros['desde'] !== '' || $filtros['hasta'] !== '', fn ($q) => $q->whereExists(
+                fn ($sub) => $sub->select(DB::raw(1))
+                    ->from('detalleruta as primera')
+                    ->whereColumn('primera.ruta_idruta', 'ruta.idruta')
+                    ->where('primera.orden', 1)
+                    ->when($filtros['desde'] !== '', fn ($q2) => $q2->whereDate('primera.fhRegistro', '>=', $filtros['desde']))
+                    ->when($filtros['hasta'] !== '', fn ($q2) => $q2->whereDate('primera.fhRegistro', '<=', $filtros['hasta']))
+            ));
+    }
+
+    /**
+     * La fila transformada del listado principal (ver `baseQueryPorRuta()`).
+     *
+     * @param  array<string, list<array<string, mixed>>>  $documentos  indexado por `idruta` (ver `documentosPorRuta()`)
+     * @return array<string, mixed>
+     */
+    public function transformarRuta(Ruta $fila, array $documentos = []): array
+    {
+        /** @var array<string, mixed> $row */
+        $row = $fila->getAttributes();
+        $estado = (string) ($row['estado'] ?? '');
+        $idruta = (string) ($row['idruta'] ?? '');
+
+        return [
+            'id' => $idruta,
+            'hoja' => $row['idruta'] ?? null,
+            'placa' => $row['placa'] ?? null,
+            'carreta' => $row['carreta'] ?? null,
+            'conductor' => $row['piloto'] ?? null,
+            'copiloto' => $row['copiloto'] ?? null,
+            'precintos' => $row['precintos'] ?? null,
+            'geocerca' => $row['geocerca_inicial'] ?? null,
+            'coordenada' => $row['coordenada_inicial'] ?? null,
+            'geocerca_final' => $row['geocerca_final'] ?? null,
+            'coordenada_final' => $row['coordenada_final'] ?? null,
+            'observacion' => $row['observacion'] ?? null,
+            'km_inicial' => $row['km_inicial'] ?? null,
+            'km_final' => $row['km_final'] ?? null,
+            // Tabla principal.
+            'fh_inicio' => $this->fecha($row['fh_inicio'] ?? null),
+            'fh_final' => $this->fecha($row['fh_final'] ?? null),
+            // Modal — punto inicial: lo indicado por el conductor vs. lo registrado por el sistema.
+            'cond_inicial' => $this->fecha($row['fh_indicado_inicial'] ?? null),
+            'sis_inicial' => $this->fecha($row['fh_inicio'] ?? null),
+            'dif_inicial' => $this->diferencia($row['fh_inicio'] ?? null, $row['fh_indicado_inicial'] ?? null),
+            // Modal — punto final (última parada registrada).
+            'cond_final' => $this->fecha($row['fh_indicado_final'] ?? null),
+            'sis_final' => $this->fecha($row['fh_final'] ?? null),
+            'dif_final' => $this->diferencia($row['fh_final'] ?? null, $row['fh_indicado_final'] ?? null),
+            'documentos' => $documentos[$idruta] ?? [],
+            'estado' => $estado,
+            'estado_label' => self::ESTADOS_RUTA[$estado] ?? $estado,
+        ];
+    }
+
+    /**
+     * Documentos adjuntos de TODAS las paradas de cada hoja de ruta (no solo
+     * una), indexados por `idruta` — a diferencia de `documentosDe()`, que
+     * sigue siendo por detalle (la usa el export, sin cambios).
+     *
+     * @param  Collection<int, Ruta>  $rutas
+     * @return array<string, list<array<string, mixed>>>
+     */
+    public function documentosPorRuta(Collection $rutas): array
+    {
+        $idrutas = $rutas
+            ->map(fn (Ruta $r) => $r->getAttribute('idruta'))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($idrutas === []) {
+            return [];
+        }
+
+        $filas = DB::table('docruta')
+            ->join('detalleruta', 'detalleruta.iddetalleRuta', '=', 'docruta.detalleRuta_iddetalleRuta')
+            ->leftJoin('tipodocumento', 'tipodocumento.idtipoDocumento', '=', 'docruta.tipoDocumento_idtipoDocumento')
+            ->whereIn('detalleruta.ruta_idruta', $idrutas)
+            ->get([
+                'detalleruta.ruta_idruta',
+                'docruta.documento',
+                'docruta.cantidad',
+                'docruta.producto',
+                'docruta.envase',
+                'docruta.pesoNeto',
+                'docruta.pesoBruto',
+                'docruta.imagen',
+                'tipodocumento.nombre as tipo',
+            ]);
+
+        $agrupados = [];
+
+        foreach ($filas as $fila) {
+            $d = (array) $fila;
+            $idruta = (string) ($d['ruta_idruta'] ?? '');
+
+            $agrupados[$idruta][] = [
+                'tipo' => $d['tipo'] ?? null,
+                'documento' => $d['documento'] ?? null,
+                'producto' => $d['producto'] ?? null,
+                'cantidad' => $d['cantidad'] ?? null,
+                'envase' => $d['envase'] ?? null,
+                'peso_neto' => $d['pesoNeto'] ?? null,
+                'peso_bruto' => $d['pesoBruto'] ?? null,
+                'imagen' => $d['imagen'] ?? null,
+            ];
+        }
+
+        return $agrupados;
     }
 
     /**
