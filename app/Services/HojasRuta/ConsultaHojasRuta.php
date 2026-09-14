@@ -375,6 +375,9 @@ class ConsultaHojasRuta
                 'docruta.pesoBruto',
                 'docruta.imagen',
                 'tipodocumento.nombre as tipo',
+                // `docruta` no tiene su propia observación — se muestra la de
+                // la parada (`detalleruta`) donde se registró ese documento.
+                'detalleruta.observacion',
             ]);
 
         $agrupados = [];
@@ -392,6 +395,7 @@ class ConsultaHojasRuta
                 'peso_neto' => $d['pesoNeto'] ?? null,
                 'peso_bruto' => $d['pesoBruto'] ?? null,
                 'imagen' => $d['imagen'] ?? null,
+                'observacion' => $d['observacion'] ?? null,
             ];
         }
 

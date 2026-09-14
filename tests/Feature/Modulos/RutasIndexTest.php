@@ -289,6 +289,7 @@ test('la fila expone la comparación conductor/sistema y los documentos para el 
         'geocerca' => 'PLANTA A',
         'fhIndicado' => '2026-01-01 08:00:00',
         'fhRegistro' => '2026-01-01 08:20:00',
+        'observacion' => 'Salida con retraso por tráfico',
     ]);
 
     DetalleRuta::factory()->for($contacto, 'contacto')->create([
@@ -320,6 +321,10 @@ test('la fila expone la comparación conductor/sistema y los documentos para el 
             ->where('rutas.0.dif_final.signo', 'neg')
             ->has('rutas.0.documentos', 1)
             ->where('rutas.0.documentos.0.documento', 'GRE-001')
+            // La observación es la de la PARADA donde se registró el
+            // documento (detalleruta.observacion), no un campo propio de
+            // docruta -- se muestra junto al documento en el modal.
+            ->where('rutas.0.documentos.0.observacion', 'Salida con retraso por tráfico')
         );
 });
 

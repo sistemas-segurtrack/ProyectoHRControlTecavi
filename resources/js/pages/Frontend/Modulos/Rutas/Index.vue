@@ -49,6 +49,8 @@ type Documento = {
     peso_neto: string | null;
     peso_bruto: string | null;
     imagen: string | null;
+    /** De la parada (`detalleruta.observacion`) donde se registró — hasta 500 caracteres. */
+    observacion: string | null;
 };
 
 /**
@@ -820,6 +822,9 @@ watch(
                                     <th class="px-2 py-1.5 text-center">
                                         P. Bruto
                                     </th>
+                                    <th class="px-2 py-1.5 text-left">
+                                        Observación
+                                    </th>
                                     <th class="px-2 py-1.5 text-center">
                                         Imagen
                                     </th>
@@ -845,8 +850,17 @@ watch(
                                     <td class="px-2 py-1.5 text-center">
                                         {{ doc.peso_bruto ?? '-' }}
                                     </td>
+                                    <td class="px-2 py-1.5">
+                                        <span :title="doc.observacion ?? undefined">
+                                            {{ truncar(doc.observacion, 100) }}
+                                        </span>
+                                    </td>
                                     <td class="px-2 py-1.5 text-center">
-                                        <span v-if="doc.imagen">📎</span>
+                                        <a v-if="doc.imagen" :href="doc.imagen" target="_blank"
+                                            rel="noopener noreferrer"
+                                            class="font-semibold text-[#b51927] underline underline-offset-2 hover:no-underline">
+                                            Ver imagen
+                                        </a>
                                         <span v-else class="text-gray-300">—</span>
                                     </td>
                                 </tr>
