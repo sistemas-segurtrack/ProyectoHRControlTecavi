@@ -57,12 +57,14 @@
             <td class="valor">{{ $primera['conductor'] ?? '—' }}</td>
             <td class="etiqueta">COPILOTO:</td>
             <td class="valor">{{ $primera['copiloto'] ?? '—' }}</td>
+            <td class="etiqueta">ESTADO:</td>
+            <td class="valor">{{ $resumen['estado_label'] ?? '—' }}</td>
         </tr>
         <tr>
             <td class="etiqueta">PRECINTOS:</td>
             <td class="valor">{{ $primera['precintos'] ?? '—' }}</td>
             <td class="etiqueta">FECHA INICIO - FECHA FINAL:</td>
-            <td class="valor">
+            <td class="valor" colspan="3">
                 @php($fechaInicio = $resumen['fh_inicio'] ?? $primera['fh_inicio'] ?? null)
                 @php($fechaFinal = $resumen['fh_final'] ?? null)
                 {{ $fechaInicio ? ($fechaInicio.($fechaFinal ? " - {$fechaFinal}" : '')) : '—' }}
@@ -72,13 +74,7 @@
             <td class="etiqueta">PLACA:</td>
             <td class="valor">{{ $primera['placa'] ?? '—' }}</td>
             <td class="etiqueta">CARRETA:</td>
-            <td class="valor">{{ $primera['carreta'] ?? '—' }}</td>
-        </tr>
-        <tr>
-            <td class="etiqueta">ESTADO:</td>
-            <td class="valor">{{ $resumen['estado_label'] ?? '—' }}</td>
-            <td class="etiqueta"></td>
-            <td class="valor"></td>
+            <td class="valor" colspan="3">{{ $primera['carreta'] ?? '—' }}</td>
         </tr>
     </table>
 
@@ -112,6 +108,7 @@
                 <th>Envase</th>
                 <th>Peso Neto</th>
                 <th>Peso Bruto</th>
+                <th>Observación</th>
                 <th>Archivo</th>
             </tr>
         </thead>
@@ -125,6 +122,7 @@
                     <td>{{ $doc['envase'] ?? '—' }}</td>
                     <td>{{ $doc['peso_neto'] ?? '—' }}</td>
                     <td>{{ $doc['peso_bruto'] ?? '—' }}</td>
+                    <td>{{ $doc['observacion'] ?? '—' }}</td>
                     <td>
                         @if ($doc['imagen'] ?? null)
                             <a class="archivo" href="{{ $doc['imagen'] }}">Ver Archivo</a>
@@ -135,7 +133,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="8" class="vacio">Sin documentos adjuntos.</td>
+                    <td colspan="9" class="vacio">Sin documentos adjuntos.</td>
                 </tr>
             @endforelse
         </tbody>

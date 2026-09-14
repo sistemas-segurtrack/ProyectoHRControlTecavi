@@ -470,6 +470,7 @@ class ConsultaHojasRuta
         }
 
         $filas = DB::table('docruta')
+            ->join('detalleruta', 'detalleruta.iddetalleRuta', '=', 'docruta.detalleRuta_iddetalleRuta')
             ->leftJoin('tipodocumento', 'tipodocumento.idtipoDocumento', '=', 'docruta.tipoDocumento_idtipoDocumento')
             ->whereIn('docruta.detalleRuta_iddetalleRuta', $ids)
             ->get([
@@ -482,6 +483,9 @@ class ConsultaHojasRuta
                 'docruta.pesoBruto',
                 'docruta.imagen',
                 'tipodocumento.nombre as tipo',
+                // `docruta` no tiene su propia observación — se usa la de la
+                // parada (`detalleruta`) donde se registró ese documento.
+                'detalleruta.observacion',
             ]);
 
         $agrupados = [];
@@ -499,6 +503,7 @@ class ConsultaHojasRuta
                 'peso_neto' => $d['pesoNeto'] ?? null,
                 'peso_bruto' => $d['pesoBruto'] ?? null,
                 'imagen' => $d['imagen'] ?? null,
+                'observacion' => $d['observacion'] ?? null,
             ];
         }
 

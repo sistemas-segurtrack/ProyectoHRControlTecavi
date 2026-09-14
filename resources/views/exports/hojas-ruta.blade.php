@@ -107,6 +107,7 @@
                                                 <th>Envase</th>
                                                 <th>Peso Neto</th>
                                                 <th>Peso Bruto</th>
+                                                <th>Observación</th>
                                                 <th>Archivo</th>
                                             </tr>
                                         </thead>
@@ -120,6 +121,7 @@
                                                     <td>{{ $doc['envase'] ?? '—' }}</td>
                                                     <td>{{ $doc['peso_neto'] ?? '—' }}</td>
                                                     <td>{{ $doc['peso_bruto'] ?? '—' }}</td>
+                                                    <td>{{ $doc['observacion'] ?? '—' }}</td>
                                                     <td>{{ $doc['imagen'] ? 'Sí' : '—' }}</td>
                                                 </tr>
                                             @endforeach

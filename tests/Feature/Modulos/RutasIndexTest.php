@@ -457,6 +457,7 @@ test('el export XLSX de una sola hoja arma el formulario con cabecera, itinerari
         'kilometraje' => '100',
         'fhRegistro' => '2026-01-01 08:00:00',
         'estado' => DetalleRuta::EN_RUTA,
+        'observacion' => 'Nota del tramo',
     ]);
 
     DetalleRuta::factory()->for($contacto, 'contacto')->create([
@@ -497,28 +498,31 @@ test('el export XLSX de una sola hoja arma el formulario con cabecera, itinerari
         ->and($hoja->getCell('C2')->getValue())->toBe('N° T000900')
         // Sin bordes en los campos del encabezado.
         ->and($hoja->getStyle('A4:D4')->getBorders()->getBottom()->getBorderStyle())->toBe(Border::BORDER_NONE)
+        // Fila 4: Conductor / Copiloto / Estado (3 campos en la primera fila).
         ->and($hoja->getCell('B4')->getValue())->toBe('CARLOS FORMULARIO')
         ->and($hoja->getCell('F4')->getValue())->toBe('ANA COPILOTO')
-        ->and($hoja->getCell('I4')->getValue())->toBe('PRE-9')
-        ->and($hoja->getCell('B5')->getValue())->toBe('FRM-001')
-        ->and($hoja->getCell('F5')->getValue())->toBe('CARR-01')
-        // Cabecera del itinerario en la fila 7 (encabezado: filas 1-5, fila 6 en blanco).
+        // Fila 5: Precintos / Fecha Inicio - Fecha Final (2 campos).
+        ->and($hoja->getCell('B5')->getValue())->toBe('PRE-9')
+        // Fila 6: Placa / Carreta (2 campos).
+        ->and($hoja->getCell('B6')->getValue())->toBe('FRM-001')
+        ->and($hoja->getCell('F6')->getValue())->toBe('CARR-01')
+        // Cabecera del itinerario en la fila 8 (encabezado: filas 1-6, fila 7 en blanco).
         // Orden: todo lo "inicial" primero, luego todo lo "final"; dentro de
         // cada bloque, Sistema antes que Conductor, y Km antes que Diferencia.
-        ->and($hoja->getCell('A7')->getValue())->toBe('Conductor')
-        ->and($hoja->getCell('B7')->getValue())->toBe('Geocerca Inicial')
-        ->and($hoja->getCell('D7')->getValue())->toBe('Fecha Inicial Sistema')
-        ->and($hoja->getCell('E7')->getValue())->toBe('Fecha Inicial Conductor')
-        ->and($hoja->getCell('F7')->getValue())->toBe('Km Inicial')
-        ->and($hoja->getCell('G7')->getValue())->toBe('Diferencia Inicial')
-        ->and($hoja->getCell('H7')->getValue())->toBe('Geocerca Final')
-        ->and($hoja->getCell('L7')->getValue())->toBe('Km Final')
-        ->and($hoja->getCell('M7')->getValue())->toBe('Diferencia Final')
-        // Itinerario en orden (parada 1 primero).
-        ->and($hoja->getCell('B8')->getValue())->toBe('PLANTA A')
-        ->and($hoja->getCell('H8')->getValue())->toBe('PLANTA B')
-        ->and((string) $hoja->getCell('F8')->getValue())->toBe('100')
-        ->and((string) $hoja->getCell('L8')->getValue())->toBe('250');
+        ->and($hoja->getCell('A8')->getValue())->toBe('Conductor')
+        ->and($hoja->getCell('B8')->getValue())->toBe('Geocerca Inicial')
+        ->and($hoja->getCell('D8')->getValue())->toBe('Fecha Inicial Sistema')
+        ->and($hoja->getCell('E8')->getValue())->toBe('Fecha Inicial Conductor')
+        ->and($hoja->getCell('F8')->getValue())->toBe('Km Inicial')
+        ->and($hoja->getCell('G8')->getValue())->toBe('Diferencia Inicial')
+        ->and($hoja->getCell('H8')->getValue())->toBe('Geocerca Final')
+        ->and($hoja->getCell('L8')->getValue())->toBe('Km Final')
+        ->and($hoja->getCell('M8')->getValue())->toBe('Diferencia Final')
+        // Itinerario en orden (parada 1 primero), fila 9.
+        ->and($hoja->getCell('B9')->getValue())->toBe('PLANTA A')
+        ->and($hoja->getCell('H9')->getValue())->toBe('PLANTA B')
+        ->and((string) $hoja->getCell('F9')->getValue())->toBe('100')
+        ->and((string) $hoja->getCell('L9')->getValue())->toBe('250');
 
     // "DOCUMENTOS ADJUNTOS" y su tabla, en algún lado más abajo.
     $texto = [];
@@ -530,13 +534,16 @@ test('el export XLSX de una sola hoja arma el formulario con cabecera, itinerari
             }
         }
     }
-    expect($texto)->toContain('DOCUMENTOS ADJUNTOS', 'Documento', 'GRE-900', 'Cemento', 'Ver Archivo');
+    expect($texto)->toContain('DOCUMENTOS ADJUNTOS', 'Documento', 'GRE-900', 'Cemento', 'Ver Archivo', 'Nota del tramo');
 
     // La celda "Archivo" es un hipervínculo, no la URL como texto plano
-    // (encabezado: filas 1-5; itinerario: cabecera fila 7, un solo tramo →
-    // fila 8; documentos: título fila 10, cabecera fila 11, primer documento 12).
-    expect($hoja->getCell('H12')->getValue())->toBe('Ver Archivo')
-        ->and($hoja->getCell('H12')->getHyperlink()->getUrl())->toBe('https://tools.segurtrack.com/hrcontrol/storage/docruta/foto-900.jpg');
+    // (encabezado: filas 1-6; itinerario: cabecera fila 8, un solo tramo →
+    // fila 9; documentos: título fila 11, cabecera fila 12, primer documento
+    // 13 — "Observación" es la columna H (la del tramo donde se registró el
+    // documento) y "Archivo" pasó a ser la I).
+    expect($hoja->getCell('H13')->getValue())->toBe('Nota del tramo')
+        ->and($hoja->getCell('I13')->getValue())->toBe('Ver Archivo')
+        ->and($hoja->getCell('I13')->getHyperlink()->getUrl())->toBe('https://tools.segurtrack.com/hrcontrol/storage/docruta/foto-900.jpg');
 });
 
 test('el export XLSX de una sola hoja trae Fecha Inicio - Fecha Final, Estado y Observación', function () {
@@ -570,14 +577,16 @@ test('el export XLSX de una sola hoja trae Fecha Inicio - Fecha Final, Estado y 
     unlink($archivo);
 
     $hoja = $libro->getActiveSheet();
-    expect($hoja->getCell('K4')->getValue())->toBe('FECHA INICIO - FECHA FINAL:')
-        ->and($hoja->getCell('L4')->getValue())->toBe('01/01/2026 08:00 - 01/01/2026 15:30')
-        ->and($hoja->getCell('H5')->getValue())->toBe('ESTADO:')
-        ->and($hoja->getCell('I5')->getValue())->toBe('FINALIZADA')
-        // Cabecera del itinerario en la fila 7 -- Observación antes de Estado.
-        ->and($hoja->getCell('N7')->getValue())->toBe('Observación')
-        ->and($hoja->getCell('O7')->getValue())->toBe('Estado')
-        ->and($hoja->getCell('N8')->getValue())->toBe('Salida con retraso');
+    // Fila 4: Conductor / Copiloto / Estado (3 en la primera fila).
+    expect($hoja->getCell('H4')->getValue())->toBe('ESTADO:')
+        ->and($hoja->getCell('I4')->getValue())->toBe('FINALIZADA')
+        // Fila 5: Precintos / Fecha Inicio - Fecha Final.
+        ->and($hoja->getCell('E5')->getValue())->toBe('FECHA INICIO - FECHA FINAL:')
+        ->and($hoja->getCell('F5')->getValue())->toBe('01/01/2026 08:00 - 01/01/2026 15:30')
+        // Cabecera del itinerario en la fila 8 -- Observación antes de Estado.
+        ->and($hoja->getCell('N8')->getValue())->toBe('Observación')
+        ->and($hoja->getCell('O8')->getValue())->toBe('Estado')
+        ->and($hoja->getCell('N9')->getValue())->toBe('Salida con retraso');
 });
 
 test('el export XLSX de una hoja acota a un solo detalle cuando se pide (tal cual el modal)', function () {
@@ -626,7 +635,16 @@ test('el export XLSX de una hoja acota a un solo detalle cuando se pide (tal cua
 test('el export XLSX sin hoja puntual sigue usando el listado plano de siempre', function () {
     $contacto = Contacto::factory()->create();
     $ruta = Ruta::factory()->create(['idruta' => 'T000901', 'placa' => 'LST-001']);
-    DetalleRuta::factory()->for($contacto, 'contacto')->create(['ruta_idruta' => $ruta->idruta, 'orden' => 1]);
+    $detalle = DetalleRuta::factory()->for($contacto, 'contacto')->create([
+        'ruta_idruta' => $ruta->idruta,
+        'orden' => 1,
+        'observacion' => 'Observación del listado',
+    ]);
+    DocRuta::create([
+        'detalleRuta_iddetalleRuta' => $detalle->iddetalleRuta,
+        'tipoDocumento_idtipoDocumento' => 1,
+        'documento' => 'GRE-901',
+    ]);
 
     $response = $this->actingAs(crearAdmin())->get(route('modulos.rutas.exportar.excel'));
 
@@ -637,5 +655,9 @@ test('el export XLSX sin hoja puntual sigue usando el listado plano de siempre',
 
     expect($libro->getSheetCount())->toBe(2)
         ->and($libro->getSheet(0)->getTitle())->toBe('Hojas de ruta')
-        ->and($libro->getSheet(1)->getTitle())->toBe('Documentos adjuntos');
+        ->and($libro->getSheet(1)->getTitle())->toBe('Documentos adjuntos')
+        // Cabecera: ID Hoja(A) Tipo(B) Documento(C) Producto(D) Cantidad(E)
+        // Envase(F) Peso Neto(G) Peso Bruto(H) Observación(I) Archivo(J).
+        ->and($libro->getSheet(1)->getCell('I1')->getValue())->toBe('Observación')
+        ->and($libro->getSheet(1)->getCell('I2')->getValue())->toBe('Observación del listado');
 });

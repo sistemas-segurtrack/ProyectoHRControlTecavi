@@ -103,7 +103,7 @@ class ExportarExcel extends Controller
 
         $cabecera = [
             'ID Hoja de Ruta', 'Tipo', 'Documento', 'Producto', 'Cantidad',
-            'Envase', 'Peso Neto', 'Peso Bruto', 'Archivo',
+            'Envase', 'Peso Neto', 'Peso Bruto', 'Observación', 'Archivo',
         ];
         $hoja->fromArray($cabecera, null, 'A1');
 
@@ -122,17 +122,18 @@ class ExportarExcel extends Controller
                     (string) ($doc['envase'] ?? ''),
                     (string) ($doc['peso_neto'] ?? ''),
                     (string) ($doc['peso_bruto'] ?? ''),
+                    (string) ($doc['observacion'] ?? ''),
                     '',
                 ], null, 'A'.$fila);
-                $this->celdaArchivo($hoja, 'I'.$fila, is_string($doc['imagen'] ?? null) ? $doc['imagen'] : null);
+                $this->celdaArchivo($hoja, 'J'.$fila, is_string($doc['imagen'] ?? null) ? $doc['imagen'] : null);
                 $fila++;
             }
         }
 
-        $this->estiloCabecera($hoja, 'A1:I1');
+        $this->estiloCabecera($hoja, 'A1:J1');
         $hoja->getRowDimension(1)->setRowHeight(22);
 
-        foreach (range('A', 'I') as $col) {
+        foreach (range('A', 'J') as $col) {
             $hoja->getColumnDimension($col)->setAutoSize(true);
         }
 
@@ -221,18 +222,23 @@ class ExportarExcel extends Controller
         $rangoFechas = $fechaFinal !== '' ? "{$fechaInicio} - {$fechaFinal}" : $fechaInicio;
         $estado = (string) ($resumen['estado_label'] ?? '');
 
+        // 3 campos en la primera fila (Conductor/Copiloto/Estado), 2 en las
+        // siguientes (Precintos/Fecha, Placa/Carreta) — pedido explícito del
+        // usuario ("esta bien que muestre 3 en 3").
         $hoja->getRowDimension(4)->setRowHeight(18);
         $campo('A4', 'B4', 'D4', 'CONDUCTOR:', (string) ($primera['conductor'] ?? ''));
         $campo('E4', 'F4', 'G4', 'COPILOTO:', (string) ($primera['copiloto'] ?? ''));
-        $campo('H4', 'I4', 'J4', 'PRECINTOS:', (string) ($primera['precintos'] ?? ''));
-        $campo('K4', 'L4', 'N4', 'FECHA INICIO - FECHA FINAL:', $rangoFechas);
+        $campo('H4', 'I4', 'O4', 'ESTADO:', $estado);
 
         $hoja->getRowDimension(5)->setRowHeight(18);
-        $campo('A5', 'B5', 'D5', 'PLACA:', (string) ($primera['placa'] ?? ''));
-        $campo('E5', 'F5', 'G5', 'CARRETA:', (string) ($primera['carreta'] ?? ''));
-        $campo('H5', 'I5', 'J5', 'ESTADO:', $estado);
+        $campo('A5', 'B5', 'D5', 'PRECINTOS:', (string) ($primera['precintos'] ?? ''));
+        $campo('E5', 'F5', 'O5', 'FECHA INICIO - FECHA FINAL:', $rangoFechas);
 
-        return 5;
+        $hoja->getRowDimension(6)->setRowHeight(18);
+        $campo('A6', 'B6', 'D6', 'PLACA:', (string) ($primera['placa'] ?? ''));
+        $campo('E6', 'F6', 'G6', 'CARRETA:', (string) ($primera['carreta'] ?? ''));
+
+        return 6;
     }
 
     /**
@@ -265,7 +271,7 @@ class ExportarExcel extends Controller
         $hoja->getStyle('A'.$desde)->getFont()->setBold(true)->setSize(12)->getColor()->setRGB(self::ROJO);
 
         $cabecera = $desde + 1;
-        $cabeceraColumnas = ['Tipo', 'Documento', 'Producto', 'Cantidad', 'Envase', 'Peso Neto', 'Peso Bruto', 'Archivo'];
+        $cabeceraColumnas = ['Tipo', 'Documento', 'Producto', 'Cantidad', 'Envase', 'Peso Neto', 'Peso Bruto', 'Observación', 'Archivo'];
         $hoja->fromArray($cabeceraColumnas, null, 'A'.$cabecera);
 
         /** @var list<array<string, mixed>> $documentos */
@@ -283,21 +289,22 @@ class ExportarExcel extends Controller
                 (string) ($doc['envase'] ?? ''),
                 (string) ($doc['peso_neto'] ?? ''),
                 (string) ($doc['peso_bruto'] ?? ''),
+                (string) ($doc['observacion'] ?? ''),
                 '',
             ], null, 'A'.$fila);
-            $this->celdaArchivo($hoja, 'H'.$fila, is_string($doc['imagen'] ?? null) ? $doc['imagen'] : null);
+            $this->celdaArchivo($hoja, 'I'.$fila, is_string($doc['imagen'] ?? null) ? $doc['imagen'] : null);
             $fila++;
         }
 
         $ultimaFila = max($fila - 1, $cabecera);
-        $this->estiloCabecera($hoja, "A{$cabecera}:H{$cabecera}");
-        $this->conBordes($hoja, "A{$cabecera}:H{$ultimaFila}");
+        $this->estiloCabecera($hoja, "A{$cabecera}:I{$cabecera}");
+        $this->conBordes($hoja, "A{$cabecera}:I{$ultimaFila}");
 
         if ($documentos === []) {
-            $hoja->mergeCells("A{$fila}:H{$fila}")->setCellValue('A'.$fila, 'Sin documentos adjuntos.');
+            $hoja->mergeCells("A{$fila}:I{$fila}")->setCellValue('A'.$fila, 'Sin documentos adjuntos.');
             $hoja->getStyle('A'.$fila)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $hoja->getStyle('A'.$fila)->getFont()->setItalic(true)->getColor()->setRGB('9CA3AF');
-            $this->conBordes($hoja, "A{$fila}:H{$fila}");
+            $this->conBordes($hoja, "A{$fila}:I{$fila}");
         }
     }
 
