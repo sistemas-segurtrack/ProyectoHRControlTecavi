@@ -247,12 +247,60 @@ class ConsultaHojasRuta
     }
 
     /**
+     * Itinerario por tramo (par de paradas: la N y la N+1) de cada hoja
+     * mostrada en el listado principal — el resumen de `transformarRuta()`
+     * solo trae la primera y la última parada, así que una hoja con 3+
+     * paradas necesita esto para mostrar los tramos intermedios en el modal.
+     * Reusa `baseQuery()`/`transformar()` (por tramo, sin cambios) acotado a
+     * las hojas visibles con un solo `whereIn` en vez de N consultas.
+     *
+     * @param  Collection<int, Ruta>  $rutas
+     * @return array<string, list<array<string, mixed>>> indexado por `idruta`, ordenado por tramo
+     */
+    public function tramosPorRuta(Collection $rutas): array
+    {
+        $idrutas = $rutas
+            ->map(fn (Ruta $r) => $r->getAttribute('idruta'))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($idrutas === []) {
+            return [];
+        }
+
+        $filtrosVacios = array_fill_keys(
+            ['conductor', 'placa', 'id', 'desde', 'hasta', 'estado', 'geocerca', 'hoja', 'detalle'],
+            ''
+        );
+
+        $registros = $this->baseQuery($filtrosVacios)
+            ->whereIn('detalleruta.ruta_idruta', $idrutas)
+            ->orderBy('detalleruta.ruta_idruta')
+            ->orderBy('detalleruta.orden')
+            ->get();
+
+        $documentos = $this->documentosDe($registros);
+
+        $agrupados = [];
+
+        foreach ($registros as $registro) {
+            $fila = $this->transformar($registro, $documentos);
+            $agrupados[(string) $fila['hoja']][] = $fila;
+        }
+
+        return $agrupados;
+    }
+
+    /**
      * La fila transformada del listado principal (ver `baseQueryPorRuta()`).
      *
      * @param  array<string, list<array<string, mixed>>>  $documentos  indexado por `idruta` (ver `documentosPorRuta()`)
+     * @param  array<string, list<array<string, mixed>>>  $tramos  indexado por `idruta` (ver `tramosPorRuta()`)
      * @return array<string, mixed>
      */
-    public function transformarRuta(Ruta $fila, array $documentos = []): array
+    public function transformarRuta(Ruta $fila, array $documentos = [], array $tramos = []): array
     {
         /** @var array<string, mixed> $row */
         $row = $fila->getAttributes();
@@ -286,6 +334,7 @@ class ConsultaHojasRuta
             'sis_final' => $this->fecha($row['fh_final'] ?? null),
             'dif_final' => $this->diferencia($row['fh_final'] ?? null, $row['fh_indicado_final'] ?? null),
             'documentos' => $documentos[$idruta] ?? [],
+            'tramos' => $tramos[$idruta] ?? [],
             'estado' => $estado,
             'estado_label' => self::ESTADOS_RUTA[$estado] ?? $estado,
         ];

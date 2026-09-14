@@ -64,9 +64,10 @@ class RutasController extends Controller
             ->withQueryString();
 
         $documentos = $this->hojas->documentosPorRuta(collect($paginador->items()));
+        $tramos = $this->hojas->tramosPorRuta(collect($paginador->items()));
 
         $rutas = collect($paginador->items())
-            ->map(fn (Ruta $hoja): array => $this->hojas->transformarRuta($hoja, $documentos))
+            ->map(fn (Ruta $hoja): array => $this->hojas->transformarRuta($hoja, $documentos, $tramos))
             ->values();
 
         return Inertia::render('Frontend/Modulos/Rutas/Index', [

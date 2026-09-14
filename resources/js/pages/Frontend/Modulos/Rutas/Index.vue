@@ -51,6 +51,28 @@ type Documento = {
     imagen: string | null;
 };
 
+/**
+ * Un tramo = un par de paradas consecutivas (la N y la N+1) dentro de una
+ * hoja. El resumen de `Hoja` solo trae la primera y la última parada de
+ * TODA la hoja; esto es el itinerario completo para el modal (ver
+ * `ConsultaHojasRuta::tramosPorRuta()`).
+ */
+type Tramo = {
+    tramo: number;
+    geocerca: string | null;
+    coordenada: string | null;
+    geocerca_final: string | null;
+    coordenada_final: string | null;
+    km_inicial: string | null;
+    km_final: string | null;
+    sis_inicial: string | null;
+    cond_inicial: string | null;
+    sis_final: string | null;
+    cond_final: string | null;
+    estado: string;
+    estado_label: string;
+};
+
 type Hoja = {
     /** El `idruta` — una fila por hoja de ruta completa, no por tramo. */
     id: string;
@@ -76,6 +98,8 @@ type Hoja = {
     sis_final: string | null;
     dif_final: Diferencia;
     documentos: Documento[];
+    /** Itinerario por tramo (paradas N y N+1 emparejadas) — ver `Tramo`. */
+    tramos: Tramo[];
     estado: string;
     estado_label: string;
 };
@@ -759,6 +783,51 @@ watch(
                     Desliza la tabla horizontalmente para ver todas las
                     columnas.
                 </p>
+
+                <!-- Itinerario por tramo: cada par de paradas consecutivas
+                     (la N y la N+1) como una fila -- el resumen de arriba
+                     solo trae la primera y la última parada de toda la hoja. -->
+                <div v-if="seleccionada.tramos.length > 0" class="min-w-0">
+                    <p
+                        class="mb-1.5 text-[11px] font-bold tracking-wider text-gray-500 uppercase">
+                        Itinerario por tramo
+                        <span class="text-gray-400">
+                            ({{ seleccionada.tramos.length }})
+                        </span>
+                    </p>
+                    <div class="min-w-0 overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                        <table class="w-full table-auto text-xs whitespace-nowrap">
+                            <thead>
+                                <tr
+                                    class="bg-gray-50 text-left text-[10px] font-semibold text-gray-500 uppercase dark:bg-gray-800">
+                                    <th class="px-2.5 py-2">Tramo</th>
+                                    <th class="px-2.5 py-2">Geocerca Inicio</th>
+                                    <th class="px-2.5 py-2">Fecha Inicio</th>
+                                    <th class="px-2.5 py-2">Km Inicio</th>
+                                    <th class="px-2.5 py-2">Geocerca Fin</th>
+                                    <th class="px-2.5 py-2">Fecha Fin</th>
+                                    <th class="px-2.5 py-2">Km Fin</th>
+                                    <th class="px-2.5 py-2">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="t in seleccionada.tramos" :key="t.tramo"
+                                    class="text-gray-700 dark:text-gray-200 [&>td]:px-2.5 [&>td]:py-2">
+                                    <td class="font-semibold">{{ t.tramo }}</td>
+                                    <td>{{ t.geocerca ?? '-' }}</td>
+                                    <td>{{ t.sis_inicial ?? '-' }}</td>
+                                    <td>{{ t.km_inicial ?? '-' }}</td>
+                                    <td>{{ t.geocerca_final ?? '-' }}</td>
+                                    <td>{{ t.sis_final ?? '-' }}</td>
+                                    <td>{{ t.km_final ?? '-' }}</td>
+                                    <td>
+                                        <EstadoBadge :estado="t.estado" :label="t.estado_label" />
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
                 <!-- Documentos adjuntos -->
                 <div class="min-w-0">

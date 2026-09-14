@@ -172,6 +172,45 @@ test('una hoja con varios tramos es UNA sola fila (no una por tramo ni por parad
         );
 });
 
+test('la hoja trae el itinerario por tramo (para el modal), no solo el resumen', function () {
+    $ruta = Ruta::factory()->create();
+    $contacto = Contacto::factory()->create();
+
+    // Tramo 1: orden 1-2, cerrado.
+    DetalleRuta::factory()->for($contacto, 'contacto')->create([
+        'ruta_idruta' => $ruta->idruta, 'orden' => 1, 'geocerca' => 'A', 'kilometraje' => '100',
+        'fhRegistro' => '2026-01-01 08:00:00',
+    ]);
+    DetalleRuta::factory()->for($contacto, 'contacto')->create([
+        'ruta_idruta' => $ruta->idruta, 'orden' => 2, 'geocerca' => 'B', 'kilometraje' => '150',
+        'fhRegistro' => '2026-01-01 09:00:00',
+    ]);
+    // Tramo 2: orden 3-4, cerrado.
+    DetalleRuta::factory()->for($contacto, 'contacto')->create([
+        'ruta_idruta' => $ruta->idruta, 'orden' => 3, 'geocerca' => 'C', 'kilometraje' => '200',
+        'fhRegistro' => '2026-01-01 10:00:00',
+    ]);
+    DetalleRuta::factory()->for($contacto, 'contacto')->create([
+        'ruta_idruta' => $ruta->idruta, 'orden' => 4, 'geocerca' => 'D', 'kilometraje' => '250',
+        'fhRegistro' => '2026-01-01 11:00:00',
+    ]);
+
+    $this->actingAs(crearAdmin())
+        ->get(route('modulos.rutas.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('rutas', 1)
+            ->has('rutas.0.tramos', 2)
+            ->where('rutas.0.tramos.0.tramo', 1)
+            ->where('rutas.0.tramos.0.geocerca', 'A')
+            ->where('rutas.0.tramos.0.geocerca_final', 'B')
+            ->where('rutas.0.tramos.0.km_inicial', '100')
+            ->where('rutas.0.tramos.0.km_final', '150')
+            ->where('rutas.0.tramos.1.tramo', 2)
+            ->where('rutas.0.tramos.1.geocerca', 'C')
+            ->where('rutas.0.tramos.1.geocerca_final', 'D')
+        );
+});
+
 test('el filtro por placa acota los resultados', function () {
     $contacto = Contacto::factory()->create();
 
