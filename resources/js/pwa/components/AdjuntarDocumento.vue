@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Aperture, Camera, RotateCcw, X } from '@lucide/vue';
+import { Aperture, Camera, RotateCcw, X, ZoomIn } from '@lucide/vue';
 import { computed, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue';
 import { useAuth } from '../stores/auth';
 import CampoTexto from './CampoTexto.vue';
@@ -30,6 +30,46 @@ const archivo = ref<File | null>(null);
 const previa = ref<string | null>(null);
 const soportaCamara =
     typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;
+
+// Zoom de la cámara. Algunos Android (Chrome) exponen un zoom real del
+// sensor por `MediaTrackCapabilities.zoom` — todavía no es parte del DOM
+// estándar de TypeScript, de ahí las interfaces propias de abajo — y se usa
+// ese cuando está disponible. Si no, se simula recortando y agrandando el
+// centro del cuadro (mismo truco que el "zoom digital" de cualquier cámara
+// de celular): la vista en vivo se agranda con CSS y la foto capturada
+// recorta esa misma región para que coincida con lo que se ve en pantalla.
+interface CapacidadesConZoom extends MediaTrackCapabilities {
+    zoom?: { min: number; max: number; step: number };
+}
+interface RestriccionConZoom extends MediaTrackConstraintSet {
+    zoom?: number;
+}
+
+const zoom = ref(1);
+const zoomMax = ref(1);
+const zoomNativo = ref(false);
+let pistaVideo: MediaStreamTrack | null = null;
+
+function resetZoom(): void {
+    zoom.value = 1;
+    zoomMax.value = 1;
+    zoomNativo.value = false;
+    pistaVideo = null;
+}
+
+async function aplicarZoomNativo(valor: number): Promise<void> {
+    if (!pistaVideo) return;
+    try {
+        const restriccion: RestriccionConZoom = { zoom: valor };
+        await pistaVideo.applyConstraints({ advanced: [restriccion] });
+    } catch {
+        /* si el navegador rechaza el valor, la vista simplemente no cambia */
+    }
+}
+
+watch(zoom, (valor) => {
+    if (zoomNativo.value) void aplicarZoomNativo(valor);
+});
 
 function camposVacios() {
     return {
@@ -103,6 +143,7 @@ function cerrarCamara(): void {
     stream.value?.getTracks().forEach((t) => t.stop());
     stream.value = null;
     camaraAbierta.value = false;
+    resetZoom();
 }
 
 async function abrirCamara(): Promise<void> {
@@ -114,6 +155,21 @@ async function abrirCamara(): Promise<void> {
             audio: false,
         });
         camaraAbierta.value = true;
+
+        pistaVideo = stream.value.getVideoTracks()[0] ?? null;
+        const capacidades = pistaVideo?.getCapabilities?.() as
+            | CapacidadesConZoom
+            | undefined;
+        if (capacidades?.zoom) {
+            zoomNativo.value = true;
+            zoomMax.value = capacidades.zoom.max;
+            zoom.value = capacidades.zoom.min;
+        } else {
+            zoomNativo.value = false;
+            zoomMax.value = 3;
+            zoom.value = 1;
+        }
+
         // el <video> aparece con v-if; esperar al siguiente tick
         await new Promise((r) => setTimeout(r, 0));
         if (video.value) {
@@ -149,7 +205,34 @@ function capturar(): void {
     const canvas = document.createElement('canvas');
     canvas.width = v.videoWidth;
     canvas.height = v.videoHeight;
-    canvas.getContext('2d')?.drawImage(v, 0, 0, canvas.width, canvas.height);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    if (!zoomNativo.value && zoom.value > 1) {
+        // Zoom simulado (CSS en la vista previa): recorta el centro del
+        // cuadro en la misma proporción y lo agranda al tamaño del canvas,
+        // para que la foto coincida con lo que el conductor vio en pantalla.
+        const anchoRecorte = v.videoWidth / zoom.value;
+        const altoRecorte = v.videoHeight / zoom.value;
+        const x = (v.videoWidth - anchoRecorte) / 2;
+        const y = (v.videoHeight - altoRecorte) / 2;
+        ctx.drawImage(
+            v,
+            x,
+            y,
+            anchoRecorte,
+            altoRecorte,
+            0,
+            0,
+            canvas.width,
+            canvas.height,
+        );
+    } else {
+        // Sin zoom, o con zoom NATIVO del sensor (el cuadro ya viene
+        // acercado de fábrica — no hay que recortar de nuevo).
+        ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+    }
+
     canvas.toBlob(
         (blob) => {
             ponerFoto(blob);
@@ -314,13 +397,43 @@ defineExpose({ activo, listo, finalizara, anexar, reset });
                     ref="camaraContenedor"
                     class="flex flex-col gap-2"
                 >
-                    <video
-                        ref="video"
-                        autoplay
-                        playsinline
-                        muted
-                        class="w-full rounded-lg border border-gray-300 bg-black dark:border-gray-600"
-                    />
+                    <div
+                        class="overflow-hidden rounded-lg border border-gray-300 bg-black dark:border-gray-600"
+                    >
+                        <video
+                            ref="video"
+                            autoplay
+                            playsinline
+                            muted
+                            class="w-full"
+                            :style="
+                                !zoomNativo
+                                    ? { transform: `scale(${zoom})` }
+                                    : undefined
+                            "
+                        />
+                    </div>
+
+                    <!-- Zoom: nativo del sensor si el navegador lo soporta
+                         (Android/Chrome), si no un recorte digital del
+                         centro (ver capturar()). -->
+                    <div class="flex items-center gap-2 px-0.5">
+                        <ZoomIn class="h-4 w-4 shrink-0 text-gray-400" />
+                        <input
+                            v-model.number="zoom"
+                            type="range"
+                            min="1"
+                            :max="zoomMax"
+                            step="0.1"
+                            class="h-1.5 flex-1 accent-[#b51927]"
+                        />
+                        <span
+                            class="w-9 shrink-0 text-right text-xs font-semibold text-gray-500 dark:text-gray-400"
+                        >
+                            {{ zoom.toFixed(1) }}x
+                        </span>
+                    </div>
+
                     <div class="flex gap-2">
                         <button
                             type="button"
