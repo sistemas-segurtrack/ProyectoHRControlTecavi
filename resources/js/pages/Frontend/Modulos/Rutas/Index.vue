@@ -710,9 +710,8 @@ watch(
                                 class="bg-gray-50 text-left text-[10px] font-semibold text-gray-500 uppercase dark:bg-gray-800">
                                 <th
                                     class="sticky left-0 z-20 bg-gray-50 px-2.5 py-2 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)] dark:bg-gray-800">
-                                    Tramo
+                                    Conductor
                                 </th>
-                                <th class="px-2.5 py-2">Conductor</th>
                                 <th class="px-2.5 py-2">Copiloto</th>
                                 <th class="px-2.5 py-2">Placa</th>
                                 <th class="px-2.5 py-2">Carreta</th>
@@ -743,9 +742,8 @@ watch(
                                 class="text-gray-700 dark:text-gray-200 [&>td]:px-2.5 [&>td]:py-2">
                                 <td
                                     class="sticky left-0 z-20 bg-white font-semibold shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)] dark:bg-gray-900">
-                                    {{ t.tramo }}
+                                    {{ t.conductor ?? '-' }}
                                 </td>
-                                <td>{{ t.conductor ?? '-' }}</td>
                                 <td>{{ t.copiloto ?? '-' }}</td>
                                 <td>{{ t.placa ?? '-' }}</td>
                                 <td>{{ t.carreta ?? '-' }}</td>
