@@ -4,18 +4,6 @@ import { computed, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue';
 import { useAuth } from '../stores/auth';
 import CampoTexto from './CampoTexto.vue';
 
-const props = withDefaults(
-    defineProps<{
-        /** Al cerrar un tramo (parada par: 2, 4, 6…) un documento que
-         *  finaliza toda la hoja (p. ej. RECIBO COMBUSTIBLE) no tiene
-         *  sentido — dejaría la hoja "incompleta" a mitad de tramo. Se
-         *  excluye ese tipo del combo; el resto del formulario ("Adjuntar")
-         *  sigue disponible igual. */
-        ocultarFinalizadores?: boolean;
-    }>(),
-    { ocultarFinalizadores: false },
-);
-
 const { state } = useAuth();
 
 const activo = ref(false);
@@ -44,13 +32,11 @@ function camposVacios() {
     };
 }
 
-/** Opciones del combo: todo el catálogo, salvo los que finalizan la hoja
- *  (`condiciona_fin`) cuando este avance cierra un tramo. */
-const tiposDisponibles = computed(() =>
-    props.ocultarFinalizadores
-        ? state.catalogos.tipos_documento.filter((t) => !t.condiciona_fin)
-        : state.catalogos.tipos_documento,
-);
+/** Opciones del combo: todo el catálogo (GUIA y RECIBO COMBUSTIBLE
+ *  disponibles siempre, sea cual sea el tramo/parada — un documento que
+ *  finaliza la hoja se puede registrar en cualquier momento, no solo al
+ *  cerrar un tramo). */
+const tiposDisponibles = computed(() => state.catalogos.tipos_documento);
 
 /** Tipo "GUIA" del catálogo: es el que queda preseleccionado por defecto. */
 const tipoPorDefecto = computed(() =>
