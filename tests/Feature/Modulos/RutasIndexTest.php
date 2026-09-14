@@ -195,7 +195,7 @@ test('el Estado de la fila es el de la tabla ruta, no el del tramo', function ()
     $finalizada = Ruta::factory()->create(['idruta' => 'T000502', 'estado' => Ruta::FINALIZADA]);
 
     // Los dos tramos de "activa" ya están cerrados a nivel de detalle (FI),
-    // pero la hoja en sí sigue "EN RUTA" mientras no llegue el documento que
+    // pero la hoja en sí sigue "ACTIVA" mientras no llegue el documento que
     // la cierra -- confirmado antes en esta misma sesión.
     DetalleRuta::factory()->for($contacto, 'contacto')->create([
         'ruta_idruta' => $activa->idruta, 'orden' => 1, 'estado' => DetalleRuta::FINALIZADO,
@@ -219,7 +219,7 @@ test('el Estado de la fila es el de la tabla ruta, no el del tramo', function ()
             ->where('rutas.0.estado_label', 'FINALIZADA')
             ->where('rutas.1.hoja', 'T000501')
             ->where('rutas.1.estado', Ruta::ACTIVA)
-            ->where('rutas.1.estado_label', 'EN RUTA')
+            ->where('rutas.1.estado_label', 'ACTIVA')
             ->where('metricas.enRuta', 1)
             ->where('metricas.finalizadas', 1)
         );

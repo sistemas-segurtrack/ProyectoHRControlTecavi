@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const props = defineProps<{
     /** Código del estado: por tramo 'ER' (en ruta) | 'FI' (finalizado); de
-     *  toda la hoja (`ruta.estado`) 'A' (en ruta) | 'F' (finalizada). */
+     *  toda la hoja (`ruta.estado`) 'A' (activa) | 'F' (finalizada). */
     estado: string | null;
     /** Etiqueta legible opcional; si falta se deriva del código. */
     label?: string | null;
@@ -10,7 +10,7 @@ const props = defineProps<{
 const TEXTO: Record<string, string> = {
     ER: 'EN RUTA',
     FI: 'FINALIZADO',
-    A: 'EN RUTA',
+    A: 'ACTIVA',
     F: 'FINALIZADA',
 };
 

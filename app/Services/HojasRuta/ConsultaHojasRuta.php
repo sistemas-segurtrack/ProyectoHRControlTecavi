@@ -35,7 +35,7 @@ class ConsultaHojasRuta
      * @var array<string, string>
      */
     public const ESTADOS_RUTA = [
-        Ruta::ACTIVA => 'EN RUTA',
+        Ruta::ACTIVA => 'ACTIVA',
         Ruta::FINALIZADA => 'FINALIZADA',
     ];
 
