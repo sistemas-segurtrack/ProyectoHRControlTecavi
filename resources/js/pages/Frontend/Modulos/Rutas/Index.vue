@@ -59,6 +59,11 @@ type Documento = {
  */
 type Tramo = {
     tramo: number;
+    conductor: string | null;
+    copiloto: string | null;
+    placa: string | null;
+    carreta: string | null;
+    precintos: string | null;
     geocerca: string | null;
     coordenada: string | null;
     geocerca_final: string | null;
@@ -67,8 +72,10 @@ type Tramo = {
     km_final: string | null;
     sis_inicial: string | null;
     cond_inicial: string | null;
+    dif_inicial: Diferencia;
     sis_final: string | null;
     cond_final: string | null;
+    dif_final: Diferencia;
     estado: string;
     estado_label: string;
 };
@@ -694,7 +701,9 @@ watch(
             </DropdownMenu>
 
             <div v-if="seleccionada" class="flex min-w-0 flex-col gap-4">
-                <!-- Detalle de la hoja de ruta (tabla única) -->
+                <!-- Detalle de la hoja de ruta: una fila por TRAMO (par de
+                     paradas N/N+1) -- una hoja con varios tramos se ve
+                     completa acá, no solo el resumen inicial/final. -->
                 <div class="min-w-0 overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
                     <table class="w-full table-auto text-xs whitespace-nowrap">
                         <thead>
@@ -702,8 +711,9 @@ watch(
                                 class="bg-gray-50 text-left text-[10px] font-semibold text-gray-500 uppercase dark:bg-gray-800">
                                 <th
                                     class="sticky left-0 z-20 bg-gray-50 px-2.5 py-2 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)] dark:bg-gray-800">
-                                    Conductor
+                                    Tramo
                                 </th>
+                                <th class="px-2.5 py-2">Conductor</th>
                                 <th class="px-2.5 py-2">Copiloto</th>
                                 <th class="px-2.5 py-2">Placa</th>
                                 <th class="px-2.5 py-2">Carreta</th>
@@ -730,49 +740,47 @@ watch(
                             </tr>
                         </thead>
                         <tbody>
-                            <tr class="text-gray-700 dark:text-gray-200 [&>td]:px-2.5 [&>td]:py-2">
+                            <tr v-for="t in seleccionada.tramos" :key="t.tramo"
+                                class="text-gray-700 dark:text-gray-200 [&>td]:px-2.5 [&>td]:py-2">
                                 <td
                                     class="sticky left-0 z-20 bg-white font-semibold shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)] dark:bg-gray-900">
-                                    {{ seleccionada.conductor ?? '-' }}
+                                    {{ t.tramo }}
                                 </td>
-                                <td>{{ seleccionada.copiloto ?? '-' }}</td>
-                                <td>{{ seleccionada.placa ?? '-' }}</td>
-                                <td>{{ seleccionada.carreta ?? '-' }}</td>
-                                <td>{{ seleccionada.precintos ?? '-' }}</td>
-                                <td>{{ seleccionada.geocerca ?? '-' }}</td>
+                                <td>{{ t.conductor ?? '-' }}</td>
+                                <td>{{ t.copiloto ?? '-' }}</td>
+                                <td>{{ t.placa ?? '-' }}</td>
+                                <td>{{ t.carreta ?? '-' }}</td>
+                                <td>{{ t.precintos ?? '-' }}</td>
+                                <td>{{ t.geocerca ?? '-' }}</td>
                                 <td class="font-mono">
-                                    {{ seleccionada.coordenada ?? '-' }}
+                                    {{ t.coordenada ?? '-' }}
                                 </td>
-                                <td>{{ seleccionada.sis_inicial ?? '-' }}</td>
-                                <td>{{ seleccionada.cond_inicial ?? '-' }}</td>
-                                <td>{{ seleccionada.km_inicial ?? '-' }}</td>
-                                <td class="font-semibold" :class="seleccionada.dif_inicial
-                                        ? DIF_CLASE[
-                                        seleccionada.dif_inicial.signo
-                                        ]
+                                <td>{{ t.sis_inicial ?? '-' }}</td>
+                                <td>{{ t.cond_inicial ?? '-' }}</td>
+                                <td>{{ t.km_inicial ?? '-' }}</td>
+                                <td class="font-semibold" :class="t.dif_inicial
+                                        ? DIF_CLASE[t.dif_inicial.signo]
                                         : 'text-gray-400'
                                     ">
-                                    {{ seleccionada.dif_inicial?.texto ?? '-' }}
+                                    {{ t.dif_inicial?.texto ?? '-' }}
                                 </td>
                                 <td>
-                                    {{ seleccionada.geocerca_final ?? '-' }}
+                                    {{ t.geocerca_final ?? '-' }}
                                 </td>
                                 <td class="font-mono">
-                                    {{ seleccionada.coordenada_final ?? '-' }}
+                                    {{ t.coordenada_final ?? '-' }}
                                 </td>
-                                <td>{{ seleccionada.sis_final ?? '-' }}</td>
-                                <td>{{ seleccionada.cond_final ?? '-' }}</td>
-                                <td>{{ seleccionada.km_final ?? '-' }}</td>
-                                <td class="font-semibold" :class="seleccionada.dif_final
-                                        ? DIF_CLASE[
-                                        seleccionada.dif_final.signo
-                                        ]
+                                <td>{{ t.sis_final ?? '-' }}</td>
+                                <td>{{ t.cond_final ?? '-' }}</td>
+                                <td>{{ t.km_final ?? '-' }}</td>
+                                <td class="font-semibold" :class="t.dif_final
+                                        ? DIF_CLASE[t.dif_final.signo]
                                         : 'text-gray-400'
                                     ">
-                                    {{ seleccionada.dif_final?.texto ?? '-' }}
+                                    {{ t.dif_final?.texto ?? '-' }}
                                 </td>
                                 <td>
-                                    <EstadoBadge :estado="seleccionada.estado" :label="seleccionada.estado_label" />
+                                    <EstadoBadge :estado="t.estado" :label="t.estado_label" />
                                 </td>
                             </tr>
                         </tbody>
@@ -783,51 +791,6 @@ watch(
                     Desliza la tabla horizontalmente para ver todas las
                     columnas.
                 </p>
-
-                <!-- Itinerario por tramo: cada par de paradas consecutivas
-                     (la N y la N+1) como una fila -- el resumen de arriba
-                     solo trae la primera y la última parada de toda la hoja. -->
-                <div v-if="seleccionada.tramos.length > 0" class="min-w-0">
-                    <p
-                        class="mb-1.5 text-[11px] font-bold tracking-wider text-gray-500 uppercase">
-                        Itinerario por tramo
-                        <span class="text-gray-400">
-                            ({{ seleccionada.tramos.length }})
-                        </span>
-                    </p>
-                    <div class="min-w-0 overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
-                        <table class="w-full table-auto text-xs whitespace-nowrap">
-                            <thead>
-                                <tr
-                                    class="bg-gray-50 text-left text-[10px] font-semibold text-gray-500 uppercase dark:bg-gray-800">
-                                    <th class="px-2.5 py-2">Tramo</th>
-                                    <th class="px-2.5 py-2">Geocerca Inicio</th>
-                                    <th class="px-2.5 py-2">Fecha Inicio</th>
-                                    <th class="px-2.5 py-2">Km Inicio</th>
-                                    <th class="px-2.5 py-2">Geocerca Fin</th>
-                                    <th class="px-2.5 py-2">Fecha Fin</th>
-                                    <th class="px-2.5 py-2">Km Fin</th>
-                                    <th class="px-2.5 py-2">Estado</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-for="t in seleccionada.tramos" :key="t.tramo"
-                                    class="text-gray-700 dark:text-gray-200 [&>td]:px-2.5 [&>td]:py-2">
-                                    <td class="font-semibold">{{ t.tramo }}</td>
-                                    <td>{{ t.geocerca ?? '-' }}</td>
-                                    <td>{{ t.sis_inicial ?? '-' }}</td>
-                                    <td>{{ t.km_inicial ?? '-' }}</td>
-                                    <td>{{ t.geocerca_final ?? '-' }}</td>
-                                    <td>{{ t.sis_final ?? '-' }}</td>
-                                    <td>{{ t.km_final ?? '-' }}</td>
-                                    <td>
-                                        <EstadoBadge :estado="t.estado" :label="t.estado_label" />
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
 
                 <!-- Documentos adjuntos -->
                 <div class="min-w-0">
