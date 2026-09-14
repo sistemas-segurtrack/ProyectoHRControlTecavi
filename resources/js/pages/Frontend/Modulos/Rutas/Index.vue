@@ -167,12 +167,13 @@ defineOptions({
     },
 });
 
-// Exportar (Excel/PDF) sigue siendo `role:admin` en el backend -- la cuenta
-// compartida "tecavi" (rol "usuario") solo ve el listado, así que ni se le
-// muestran estos botones.
-const puedeExportar = computed(() =>
-    usePage().props.auth.roles.includes('admin'),
-);
+// Exportar (Excel/PDF) también lo puede usar la cuenta compartida "tecavi"
+// (rol "usuario"), no solo el admin.
+const puedeExportar = computed(() => {
+    const roles = usePage().props.auth.roles;
+
+    return roles.includes('admin') || roles.includes('usuario');
+});
 
 // ─── Constantes de estilo ─────────────────────────────────────────────────────
 

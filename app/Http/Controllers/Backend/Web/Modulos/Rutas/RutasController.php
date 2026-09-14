@@ -22,8 +22,8 @@ class RutasController extends Controller
 
     /**
      * Roles con acceso al listado real. "usuario" es la cuenta compartida
-     * `tecavi@segurtrack.com` (ver `RutasAccesoController`) — solo lectura,
-     * sin Contactos ni exportar (esos siguen siendo `role:admin`).
+     * `tecavi@segurtrack.com` (ver `RutasAccesoController`) — también ve
+     * Contactos y exporta (Excel/PDF), ver `routes/web.php`.
      *
      * @var list<string>
      */

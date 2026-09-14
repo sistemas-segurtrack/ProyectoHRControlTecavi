@@ -25,15 +25,12 @@ Route::prefix('modulos')->name('modulos.')->group(function () {
         ->middleware('throttle:6,1')
         ->name('rutas.acceso');
 
-    Route::middleware(['auth', 'verified', 'role:admin'])->group(function () {
-        Route::get('rutas/exportar/excel', ExportarExcel::class)->name('rutas.exportar.excel');
-        Route::get('rutas/exportar/pdf', ExportarPdf::class)->name('rutas.exportar.pdf');
-    });
-
-    // Contactos también la ve/gestiona la cuenta compartida "tecavi" (rol
-    // "usuario") -- a diferencia de exportar, que sigue siendo solo del admin.
+    // Exportar y Contactos también los ve/gestiona la cuenta compartida
+    // "tecavi" (rol "usuario"), no solo el admin.
     // `role:` separa roles alternativos con "|" -- una coma cambiaría de guard.
     Route::middleware(['auth', 'verified', 'role:admin|usuario'])->group(function () {
+        Route::get('rutas/exportar/excel', ExportarExcel::class)->name('rutas.exportar.excel');
+        Route::get('rutas/exportar/pdf', ExportarPdf::class)->name('rutas.exportar.pdf');
         Route::resource('contactos', ContactosController::class)
             ->only(['index', 'store', 'update', 'destroy']);
     });
