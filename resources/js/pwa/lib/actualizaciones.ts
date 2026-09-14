@@ -20,12 +20,15 @@ export const hayActualizacion = ref(false);
  * justo cuando `clients.claim()` hace efecto y una versión nueva pasa a
  * controlar la página.
  */
-export function vigilarActualizaciones(registro: ServiceWorkerRegistration): void {
+export function vigilarActualizaciones(
+    registro: ServiceWorkerRegistration,
+): void {
     // `controllerchange` también se dispara la PRIMERA vez que un SW toma
     // control de una página que todavía no tenía ninguno -- eso es una
     // instalación nueva, no una actualización, así que no debe avisar nada.
     // Se guarda si YA había un controlador antes de que pase cualquier cambio.
-    const teniaControladorAlCargar = navigator.serviceWorker.controller !== null;
+    const teniaControladorAlCargar =
+        navigator.serviceWorker.controller !== null;
 
     let yaAvisado = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -37,6 +40,9 @@ export function vigilarActualizaciones(registro: ServiceWorkerRegistration): voi
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') void registro.update();
     });
+    // Un conductor que recupera señal en movimiento no debería esperar hasta
+    // 5 minutos (o a volver a la app) para enterarse de una versión nueva.
+    window.addEventListener('online', () => void registro.update());
     setInterval(() => void registro.update(), 5 * 60 * 1000);
 }
 

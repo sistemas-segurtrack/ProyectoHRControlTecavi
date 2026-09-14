@@ -7,7 +7,12 @@ import { reactive, readonly } from 'vue';
  */
 type EstadoUbicacion = {
     coordenada: string | null;
-    permiso: 'desconocido' | 'concedido' | 'denegado' | 'no-soportado';
+    permiso:
+        | 'desconocido'
+        | 'concedido'
+        | 'denegado'
+        | 'gps-apagado'
+        | 'no-soportado';
     error: string | null;
 };
 
@@ -27,7 +32,17 @@ function fija(pos: GeolocationPosition): void {
 
 function falla(err: GeolocationPositionError): void {
     estado.error = err.message;
-    if (err.code === err.PERMISSION_DENIED) estado.permiso = 'denegado';
+    // PERMISSION_DENIED = el conductor (o el navegador) negó el permiso.
+    // POSITION_UNAVAILABLE = el servicio de ubicación del SISTEMA está
+    // apagado (el GPS del celular, no un permiso de la app) — se trata
+    // igual de "no hay forma de conseguir ubicación ahora", con su propio
+    // mensaje. TIMEOUT es transitorio (mala señal momentánea): no toca
+    // `permiso`, `watchPosition` lo sigue reintentando solo.
+    if (err.code === err.PERMISSION_DENIED) {
+        estado.permiso = 'denegado';
+    } else if (err.code === err.POSITION_UNAVAILABLE) {
+        estado.permiso = 'gps-apagado';
+    }
 }
 
 /**

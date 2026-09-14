@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { LocateFixed, MapPinOff } from '@lucide/vue';
+import { MapPinOff } from '@lucide/vue';
 import { computed, onMounted, ref } from 'vue';
 import { RouterView, useRoute } from 'vue-router';
 import { aplicarActualizacion, hayActualizacion } from './lib/actualizaciones';
 import {
+    corriendoInstalada,
     iniciarUbicacion,
     precargarCamara,
     reintentarUbicacion,
@@ -18,11 +19,18 @@ const { resumen: cola } = usePendientes();
 const verErrores = ref(false);
 const { ubicacion } = useUbicacion();
 
-// La ubicación es obligatoria para usar la app (login incluido) -- sin ella
-// no hay como registrar los avances. La página de instalar es la excepción:
-// son solo instrucciones, todavía no hay nada que registrar.
+// La ubicación es obligatoria SOLO para quien tiene la PWA instalada (ícono
+// en el celular) -- una visita normal por navegador la usa igual en segundo
+// plano, pero no queda bloqueada sin ella. La página de instalar es aparte:
+// son solo instrucciones, todavía no hay nada que registrar. Mientras el
+// permiso está "desconocido" (esperando el primer fix o la respuesta del
+// diálogo nativo) NO bloquea -- solo cuando ya se sabe que no hay forma de
+// conseguir ubicación (denegado / GPS apagado / no soportado).
 const bloqueadoPorUbicacion = computed(
-    () => route.name !== 'instalar' && ubicacion.permiso !== 'concedido',
+    () =>
+        route.name !== 'instalar' &&
+        corriendoInstalada() &&
+        ['denegado', 'gps-apagado', 'no-soportado'].includes(ubicacion.permiso),
 );
 
 onMounted(() => {
@@ -115,23 +123,16 @@ onMounted(() => {
             </ul>
         </div>
 
-        <!-- Ubicación obligatoria: sin permiso concedido no se ve ni el
-             login -- el conductor no puede "iniciar" la app. -->
+        <!-- Ubicación obligatoria (solo instalada): sin ubicación disponible
+             no se ve ni el login -- el conductor no puede "iniciar" la app.
+             No bloquea mientras está "desconocido" (esperando el primer fix
+             o el diálogo nativo) -- solo cuando ya se sabe que no hay forma
+             de conseguirla. -->
         <div
             v-if="bloqueadoPorUbicacion"
             class="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center"
         >
-            <MapPinOff
-                v-if="
-                    ubicacion.permiso === 'denegado' ||
-                    ubicacion.permiso === 'no-soportado'
-                "
-                class="h-12 w-12 text-rose-500"
-            />
-            <LocateFixed
-                v-else
-                class="h-12 w-12 animate-pulse text-[#b51927]"
-            />
+            <MapPinOff class="h-12 w-12 text-rose-500" />
 
             <h1 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                 Ubicación requerida
@@ -146,15 +147,15 @@ onMounted(() => {
                 junto a la dirección) y vuelve a intentar.
             </p>
             <p
-                v-else-if="ubicacion.permiso === 'no-soportado'"
+                v-else-if="ubicacion.permiso === 'gps-apagado'"
                 class="max-w-xs text-sm text-gray-500 dark:text-gray-400"
             >
-                Tu navegador no soporta ubicación. Usa un navegador actualizado
-                (Chrome, Safari) para poder entrar.
+                Tu GPS está apagado. Actívalo en la configuración de tu celular
+                e intenta de nuevo.
             </p>
             <p v-else class="max-w-xs text-sm text-gray-500 dark:text-gray-400">
-                Esperando el permiso de ubicación — responde al aviso del
-                navegador para continuar.
+                Tu navegador no soporta ubicación. Usa un navegador actualizado
+                (Chrome, Safari) para poder entrar.
             </p>
 
             <button
