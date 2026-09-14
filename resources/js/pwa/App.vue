@@ -2,10 +2,7 @@
 import { LocateFixed, MapPinOff } from '@lucide/vue';
 import { computed, onMounted, ref } from 'vue';
 import { RouterView, useRoute } from 'vue-router';
-import {
-    aplicarActualizacion,
-    hayActualizacion,
-} from './lib/actualizaciones';
+import { aplicarActualizacion, hayActualizacion } from './lib/actualizaciones';
 import {
     iniciarUbicacion,
     precargarCamara,
@@ -125,10 +122,16 @@ onMounted(() => {
             class="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center"
         >
             <MapPinOff
-                v-if="ubicacion.permiso === 'denegado' || ubicacion.permiso === 'no-soportado'"
+                v-if="
+                    ubicacion.permiso === 'denegado' ||
+                    ubicacion.permiso === 'no-soportado'
+                "
                 class="h-12 w-12 text-rose-500"
             />
-            <LocateFixed v-else class="h-12 w-12 animate-pulse text-[#b51927]" />
+            <LocateFixed
+                v-else
+                class="h-12 w-12 animate-pulse text-[#b51927]"
+            />
 
             <h1 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                 Ubicación requerida
@@ -139,15 +142,15 @@ onMounted(() => {
                 class="max-w-xs text-sm text-gray-500 dark:text-gray-400"
             >
                 Esta app necesita tu ubicación para registrar los avances de
-                ruta. Habilítala en los permisos del navegador (icono de
-                candado junto a la dirección) y vuelve a intentar.
+                ruta. Habilítala en los permisos del navegador (icono de candado
+                junto a la dirección) y vuelve a intentar.
             </p>
             <p
                 v-else-if="ubicacion.permiso === 'no-soportado'"
                 class="max-w-xs text-sm text-gray-500 dark:text-gray-400"
             >
-                Tu navegador no soporta ubicación. Usa un navegador
-                actualizado (Chrome, Safari) para poder entrar.
+                Tu navegador no soporta ubicación. Usa un navegador actualizado
+                (Chrome, Safari) para poder entrar.
             </p>
             <p v-else class="max-w-xs text-sm text-gray-500 dark:text-gray-400">
                 Esperando el permiso de ubicación — responde al aviso del

@@ -4,6 +4,17 @@ import { computed, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue';
 import { useAuth } from '../stores/auth';
 import CampoTexto from './CampoTexto.vue';
 
+const props = withDefaults(
+    defineProps<{
+        /** Al ABRIR un tramo (parada impar: 1, 3, 5…) un documento que
+         *  finaliza toda la hoja (p. ej. RECIBO COMBUSTIBLE) no tiene
+         *  sentido todavía — recién se está empezando ese tramo. Se excluye
+         *  ese tipo del combo; al CERRARLO (parada par) sí se ofrecen todos. */
+        ocultarFinalizadores?: boolean;
+    }>(),
+    { ocultarFinalizadores: false },
+);
+
 const { state } = useAuth();
 
 const activo = ref(false);
@@ -32,11 +43,13 @@ function camposVacios() {
     };
 }
 
-/** Opciones del combo: todo el catálogo (GUIA y RECIBO COMBUSTIBLE
- *  disponibles siempre, sea cual sea el tramo/parada — un documento que
- *  finaliza la hoja se puede registrar en cualquier momento, no solo al
- *  cerrar un tramo). */
-const tiposDisponibles = computed(() => state.catalogos.tipos_documento);
+/** Opciones del combo: todo el catálogo, salvo los que finalizan la hoja
+ *  (`condiciona_fin`) cuando este avance ABRE un tramo. */
+const tiposDisponibles = computed(() =>
+    props.ocultarFinalizadores
+        ? state.catalogos.tipos_documento.filter((t) => !t.condiciona_fin)
+        : state.catalogos.tipos_documento,
+);
 
 /** Tipo "GUIA" del catálogo: es el que queda preseleccionado por defecto. */
 const tipoPorDefecto = computed(() =>
@@ -53,7 +66,7 @@ function aplicarDefecto(): void {
 watch(tipoPorDefecto, aplicarDefecto, { immediate: true });
 
 // Si el tipo elegido deja de estar disponible (p. ej. al entrar a un tramo
-// que cierra), se limpia la selección en vez de dejar un id "fantasma" que
+// que abre), se limpia la selección en vez de dejar un id "fantasma" que
 // ya no aparece en el combo.
 watch(tiposDisponibles, (lista) => {
     if (

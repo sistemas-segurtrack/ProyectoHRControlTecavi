@@ -45,6 +45,15 @@ const errorKm = computed(() =>
     errorKilometraje(form.value.kilometraje, referenciaKm.value),
 );
 
+// Espejo de `RegistrarOrdenRequest::minimoDelTramo()`: parada impar = inicio
+// de un tramo, parada par = su fin. Si este avance ABRE un tramo nuevo, un
+// documento que finaliza toda la hoja (RECIBO COMBUSTIBLE) no debe
+// ofrecerse todavía — recién se está empezando ese tramo.
+const abreTramo = computed(() => {
+    const ultimoOrden = ruta.value?.ordenes.at(-1)?.orden ?? 0;
+    return (ultimoOrden + 1) % 2 === 1;
+});
+
 function limpiar(): void {
     form.value = {
         geocerca: '',
@@ -218,7 +227,10 @@ async function registrar(): Promise<void> {
                 placeholder="Opcional"
             />
 
-            <AdjuntarDocumento ref="adjunto" />
+            <AdjuntarDocumento
+                ref="adjunto"
+                :ocultar-finalizadores="abreTramo"
+            />
 
             <EstadoUbicacion />
 

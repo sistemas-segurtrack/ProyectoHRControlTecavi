@@ -163,9 +163,9 @@ async function iniciar(): Promise<void> {
                     v-if="idRutaEnCurso"
                     class="text-xs text-rose-600 dark:text-rose-400"
                 >
-                    Esta unidad ya tiene una hoja de ruta en curso
-                    ({{ idRutaEnCurso }}). Continúala o finalízala antes de
-                    iniciar una nueva.
+                    Esta unidad ya tiene una hoja de ruta en curso ({{
+                        idRutaEnCurso
+                    }}). Continúala o finalízala antes de iniciar una nueva.
                 </p>
             </div>
             <CampoCombo
@@ -200,7 +200,10 @@ async function iniciar(): Promise<void> {
                 placeholder="Opcional"
             />
 
-            <AdjuntarDocumento ref="adjunto" />
+            <!-- Su orden siempre es 1 (impar, abre el primer tramo): un
+                 documento que finaliza la hoja (RECIBO COMBUSTIBLE) no
+                 tiene sentido todavía. -->
+            <AdjuntarDocumento ref="adjunto" ocultar-finalizadores />
 
             <CampoTexto
                 v-model="form.fhRegistro"

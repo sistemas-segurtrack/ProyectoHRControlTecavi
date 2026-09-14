@@ -686,15 +686,11 @@ watch(
                     <ChevronDown class="h-3 w-3" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" class="w-56">
-                    <DropdownMenuItem
-                        @click="exportar('excel', seleccionada?.hoja)"
-                    >
+                    <DropdownMenuItem @click="exportar('excel', seleccionada?.hoja)">
                         <FileSpreadsheet class="h-4 w-4 text-emerald-600" />
                         Excel (XLSX)
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                        @click="exportar('pdf', seleccionada?.hoja)"
-                    >
+                    <DropdownMenuItem @click="exportar('pdf', seleccionada?.hoja)">
                         <FileText class="h-4 w-4 text-[#b51927]" />
                         PDF (A4)
                     </DropdownMenuItem>
