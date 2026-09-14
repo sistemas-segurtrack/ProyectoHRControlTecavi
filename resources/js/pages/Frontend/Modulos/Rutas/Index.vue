@@ -78,6 +78,8 @@ type Tramo = {
     sis_final: string | null;
     cond_final: string | null;
     dif_final: Diferencia;
+    /** De la parada de inicio del tramo (`detalleruta.observacion`) — hasta 500 caracteres. */
+    observacion: string | null;
     estado: string;
     estado_label: string;
 };
@@ -734,6 +736,7 @@ watch(
                                 </th>
                                 <th class="px-2.5 py-2">Km Final</th>
                                 <th class="px-2.5 py-2">Diferencia Final</th>
+                                <th class="px-2.5 py-2">Observación</th>
                                 <th class="px-2.5 py-2">Estado</th>
                             </tr>
                         </thead>
@@ -775,6 +778,11 @@ watch(
                                         : 'text-gray-400'
                                     ">
                                     {{ t.dif_final?.texto ?? '-' }}
+                                </td>
+                                <td>
+                                    <span :title="t.observacion ?? undefined">
+                                        {{ truncar(t.observacion, 100) }}
+                                    </span>
                                 </td>
                                 <td>
                                     <EstadoBadge :estado="t.estado" :label="t.estado_label" />
@@ -870,12 +878,6 @@ watch(
                         Sin documentos adjuntos.
                     </p>
                 </div>
-
-                <p v-if="seleccionada.observacion"
-                    class="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
-                    <span class="font-semibold">Observación:</span>
-                    {{ seleccionada.observacion }}
-                </p>
             </div>
         </DialogContent>
     </Dialog>
