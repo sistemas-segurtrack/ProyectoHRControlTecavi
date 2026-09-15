@@ -1,4 +1,5 @@
-import { reactive, readonly } from 'vue';
+import { computed, reactive, readonly, shallowRef } from 'vue';
+import { useAuth } from '../stores/auth';
 
 /**
  * Cola de envíos pendientes (crear ruta / registrar avance) hechos sin
@@ -18,6 +19,12 @@ export type EnvioPendiente = {
     id: string;
     tipo: TipoEnvio;
     /**
+     * Conductor que lo registró. Solo se envía con SU sesión: si en el mismo
+     * celular entra otro conductor, no debe quedar a nombre de ese otro.
+     * Los envíos encolados antes de existir este campo no lo tienen.
+     */
+    conductorId?: number;
+    /**
      * Identificador local (no existe en el servidor) para una hoja de ruta
      * armada sin señal. Un `continuar` que dependa de esa ruta todavía sin
      * sincronizar referencia este mismo valor en vez de `idruta` — hasta que
@@ -34,12 +41,21 @@ export type EnvioPendiente = {
     creadoEn: number;
     /**
      * Si el servidor lo rechazó al intentar sincronizarlo (validación u otro
-     * error que no sea de red) queda marcado acá en vez de descartarse en
-     * silencio — necesita que alguien lo vea y decida, no tiene sentido
-     * reintentarlo solo porque casi siempre vuelve a fallar por lo mismo.
+     * error que no sea de red ni de sesión) queda marcado acá en vez de
+     * descartarse en silencio — necesita que alguien lo vea y decida, no
+     * tiene sentido reintentarlo solo porque casi siempre vuelve a fallar
+     * por lo mismo.
      */
     ultimoError?: string;
 };
+
+/** Los envíos sin `conductorId` (anteriores a ese campo) se toman como del conductor actual. */
+export function esDelConductor(
+    envio: EnvioPendiente,
+    conductorId: number | null,
+): boolean {
+    return envio.conductorId === undefined || envio.conductorId === conductorId;
+}
 
 function abrirDB(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
@@ -52,16 +68,12 @@ function abrirDB(): Promise<IDBDatabase> {
     });
 }
 
-const resumen = reactive<{ pendientes: number; errores: EnvioPendiente[] }>({
-    pendientes: 0,
-    errores: [],
-});
+/** Copia en memoria de la cola, para los avisos de `App.vue`. */
+const envios = shallowRef<EnvioPendiente[]>([]);
 
 async function actualizarResumen(): Promise<void> {
     try {
-        const todos = await listar();
-        resumen.errores = todos.filter((e) => e.ultimoError !== undefined);
-        resumen.pendientes = todos.length - resumen.errores.length;
+        envios.value = await listar();
     } catch {
         /* IndexedDB no disponible (privado/incógnito estricto): sin cola */
     }
@@ -126,6 +138,21 @@ export async function actualizar(
     await actualizarResumen();
 }
 
+/** Pendientes y rechazados del conductor con sesión (no los de otro conductor). */
 export function usePendientes() {
-    return { resumen: readonly(resumen) };
+    const { state } = useAuth();
+
+    const propios = computed(() =>
+        envios.value.filter((e) =>
+            esDelConductor(e, state.conductor?.id ?? null),
+        ),
+    );
+    const errores = computed(() =>
+        propios.value.filter((e) => e.ultimoError !== undefined),
+    );
+    const pendientes = computed(
+        () => propios.value.length - errores.value.length,
+    );
+
+    return { resumen: readonly(reactive({ pendientes, errores })) };
 }

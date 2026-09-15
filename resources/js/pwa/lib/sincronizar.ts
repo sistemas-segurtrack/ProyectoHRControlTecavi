@@ -1,10 +1,12 @@
 import { ref } from 'vue';
 import { rutaFinalizada, useAuth, type Orden, type Ruta } from '../stores/auth';
 import { api, ApiError, uuid } from './api';
+import type { CuerpoEnvio } from './formularioAvance';
 import {
     actualizar,
     agregar,
     eliminar,
+    esDelConductor,
     listar,
     type EnvioPendiente,
 } from './outbox';
@@ -29,9 +31,7 @@ function formDataDeEntradas(entradas: EnvioPendiente['entradas']): FormData {
     return fd;
 }
 
-function entradasDeCuerpo(
-    cuerpo: FormData | Record<string, string | null>,
-): EnvioPendiente['entradas'] {
+function entradasDeCuerpo(cuerpo: CuerpoEnvio): EnvioPendiente['entradas'] {
     if (cuerpo instanceof FormData) {
         return Array.from(cuerpo.entries()) as EnvioPendiente['entradas'];
     }
@@ -68,7 +68,7 @@ function ordenLocal(numero: number, datos: DatosOrdenLocal): Orden {
  * de inicio con una `idruta` local (`LOCAL-...`), y el envío real se encola.
  */
 export async function encolarCrearRuta(
-    cuerpo: FormData | Record<string, string | null>,
+    cuerpo: CuerpoEnvio,
     datos: {
         placa: string;
         piloto: string;
@@ -82,6 +82,7 @@ export async function encolarCrearRuta(
     await agregar({
         id: uuid(),
         tipo: 'crear-ruta',
+        conductorId: useAuth().state.conductor?.id,
         tempId,
         idempotencyKey: uuid(),
         entradas: entradasDeCuerpo(cuerpo),
@@ -104,7 +105,7 @@ export async function encolarCrearRuta(
  * todavía sin sincronizar) — igual, queda visible de inmediato.
  */
 export async function encolarContinuar(
-    cuerpo: FormData | Record<string, string | null>,
+    cuerpo: CuerpoEnvio,
     rutaActual: Ruta,
     datos: DatosOrdenLocal,
 ): Promise<Ruta> {
@@ -113,6 +114,7 @@ export async function encolarContinuar(
     await agregar({
         id: uuid(),
         tipo: 'continuar',
+        conductorId: useAuth().state.conductor?.id,
         ...(esLocal
             ? { tempId: rutaActual.idruta }
             : { idruta: rutaActual.idruta }),
@@ -137,6 +139,7 @@ export async function encolarContinuar(
 type ResultadoEnvio =
     | 'sincronizado'
     | 'red-caida'
+    | 'sesion-cerrada'
     | 'sin-avance'
     | 'descartado'
     | 'error';
@@ -189,6 +192,9 @@ async function procesarUno(envio: EnvioPendiente): Promise<ResultadoEnvio> {
         return 'sincronizado';
     } catch (e) {
         if (e instanceof ApiError && e.status === 0) return 'red-caida';
+        // Token revocado/vencido: no es culpa del envío — queda pendiente y
+        // sale cuando el conductor vuelva a entrar (LoginPage).
+        if (e instanceof ApiError && e.status === 401) return 'sesion-cerrada';
 
         if (
             e instanceof ApiError &&
@@ -225,26 +231,35 @@ async function procesarUno(envio: EnvioPendiente): Promise<ResultadoEnvio> {
 }
 
 /**
- * Vacía la cola en orden. Se llama al volver la señal y al abrir la app. Los
- * envíos ya marcados con `ultimoError` NO se reintentan solos — casi siempre
- * es un error que se va a repetir (p. ej. un kilometraje que ya no es
- * válido), así que insistir a lo tonto no ayuda; quedan visibles para que el
- * conductor decida (ver `descartar()`).
+ * Vacía en orden la cola del conductor con sesión. Se llama al abrir la app,
+ * al volver la señal y al iniciar sesión. Los envíos ya marcados con
+ * `ultimoError` NO se reintentan solos — casi siempre es un error que se va
+ * a repetir (p. ej. un kilometraje que ya no es válido), así que insistir no
+ * ayuda; quedan visibles para que el conductor decida (ver `descartar()`).
  */
 export async function procesarCola(): Promise<void> {
-    if (sincronizando.value) return;
+    const { state } = useAuth();
+    if (sincronizando.value || state.token === null) return;
     sincronizando.value = true;
     try {
         for (;;) {
+            const conductorId = state.conductor?.id ?? null;
             const cola = (await listar()).filter(
-                (e) => e.ultimoError === undefined,
+                (e) =>
+                    e.ultimoError === undefined &&
+                    esDelConductor(e, conductorId),
             );
             if (cola.length === 0) return;
 
             let avanzo = false;
             for (const envio of cola) {
                 const resultado = await procesarUno(envio);
-                if (resultado === 'red-caida') return;
+                if (
+                    resultado === 'red-caida' ||
+                    resultado === 'sesion-cerrada'
+                ) {
+                    return;
+                }
                 if (resultado !== 'sin-avance') avanzo = true;
             }
             // Si nadie avanzó, lo que queda son 'continuar' esperando su

@@ -4,6 +4,7 @@ namespace App\Pwa\Controllers;
 
 use App\Events\HojaRutaCreada;
 use App\Events\HojaRutaFinalizada;
+use App\Events\TramoRutaCerrado;
 use App\Http\Controllers\Controller;
 use App\Jobs\Wialon\ActualizarContadorKilometrajeJob;
 use App\Models\HRControl\DetalleRuta;
@@ -131,7 +132,7 @@ class RutaController extends Controller
         $tipo = $this->tipoDocumentoAdjunto($request);
         $finaliza = $this->documentoFinaliza($tipo);
 
-        DB::transaction(function () use ($modelo, $datos, $request, $tipo, $finaliza): void {
+        $numeroOrden = DB::transaction(function () use ($modelo, $datos, $request, $tipo, $finaliza): int {
             $siguienteOrden = (int) $modelo->detalles()->max('orden') + 1;
 
             /** @var DetalleRuta $orden */
@@ -155,10 +156,16 @@ class RutaController extends Controller
             if ($finaliza) {
                 $modelo->update(['estado' => Ruta::FINALIZADA]);
             }
+
+            return $siguienteOrden;
         });
 
+        // Avisos (van a la cola): una parada par cierra un tramo; si además
+        // finaliza la hoja, solo sale el aviso final.
         if ($finaliza) {
             HojaRutaFinalizada::dispatch($ruta);
+        } elseif ($numeroOrden % 2 === 0) {
+            TramoRutaCerrado::dispatch($ruta);
         }
         $this->empujarContadorSiCorresponde($modelo->placa, $datos['kilometraje'] ?? null);
 

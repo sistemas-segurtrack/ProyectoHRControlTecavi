@@ -2,8 +2,10 @@
 
 use App\Mail\HojaRutaCreadaMail;
 use App\Mail\HojaRutaFinalizadaMail;
+use App\Mail\HojaRutaTramoCerradoMail;
 use App\Models\HRControl\Contacto;
 use App\Models\HRControl\TipoDocumento;
+use App\Support\HojasRuta\ResumenHojaRuta;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
@@ -99,9 +101,11 @@ test('registrar un avance que finaliza avisa a la geocerca del avance, no la ini
         HojaRutaFinalizadaMail::class,
         fn (HojaRutaFinalizadaMail $mail) => $mail->hasTo('destino@segurtrack.com') && ! $mail->hasTo('origen@segurtrack.com'),
     );
+    // La parada par que finaliza la hoja manda solo el aviso final.
+    Mail::assertNotSent(HojaRutaTramoCerradoMail::class);
 });
 
-test('registrar un avance sin condicionaFin no manda el correo de finalizada', function () {
+test('cerrar un tramo (parada par) avisa por correo a la geocerca de esa parada, sin finalizar', function () {
     Mail::fake();
     Storage::fake('public');
     Contacto::factory()->create(['geocerca' => 'DESTINO', 'correo' => ['destino@segurtrack.com']]);
@@ -121,7 +125,43 @@ test('registrar un avance sin condicionaFin no manda el correo de finalizada', f
         ],
     ])->assertCreated();
 
+    Mail::assertSent(HojaRutaTramoCerradoMail::class, fn (HojaRutaTramoCerradoMail $mail) => $mail->hasTo('destino@segurtrack.com')
+        && $mail->resumen->idruta === $idruta
+        && $mail->resumen->documentos[0]['documento'] === 'PL-2');
     Mail::assertNotSent(HojaRutaFinalizadaMail::class);
+});
+
+test('el correo de tramo cerrado muestra la hoja y los documentos de esa parada', function () {
+    $resumen = new ResumenHojaRuta(
+        idruta: 'T000009',
+        placa: 'AAA-111',
+        piloto: 'PILOTO',
+        copiloto: null,
+        carreta: null,
+        precintos: null,
+        geocerca: 'DESTINO',
+        fecha: now(),
+        estadoLabel: 'ACTIVA',
+        documentos: [['tipo' => 'GUIA', 'documento' => 'GR-9', 'producto' => null, 'cantidad' => null, 'envase' => null, 'pesoNeto' => null, 'pesoBruto' => null]],
+    );
+
+    $mail = new HojaRutaTramoCerradoMail($resumen);
+
+    $mail->assertHasSubject('Hoja de ruta T000009: tramo cerrado');
+    $mail->assertSeeInHtml('DESTINO');
+    $mail->assertSeeInHtml('GR-9');
+});
+
+test('abrir un tramo nuevo (parada impar) no avisa por correo', function () {
+    Mail::fake();
+    Contacto::factory()->create(['geocerca' => 'DESTINO', 'correo' => ['destino@segurtrack.com']]);
+    Sanctum::actingAs(conductorPwa(), ['*']);
+
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'ORIGEN', 'kilometraje' => '100'])->json('data.idruta');
+    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['geocerca' => 'DESTINO', 'kilometraje' => '150'])->assertCreated();
+    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['geocerca' => 'DESTINO', 'kilometraje' => '200'])->assertCreated();
+
+    Mail::assertSent(HojaRutaTramoCerradoMail::class, 1);
 });
 
 test('el reintento con el mismo Idempotency-Key no duplica el correo', function () {

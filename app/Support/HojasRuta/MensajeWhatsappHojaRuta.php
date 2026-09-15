@@ -15,6 +15,11 @@ class MensajeWhatsappHojaRuta
         return self::cuerpo('creada', $r);
     }
 
+    public static function tramoCerrado(ResumenHojaRuta $r): string
+    {
+        return self::cuerpo('tramo cerrado', $r);
+    }
+
     public static function finalizada(ResumenHojaRuta $r): string
     {
         return self::cuerpo('finalizada', $r);

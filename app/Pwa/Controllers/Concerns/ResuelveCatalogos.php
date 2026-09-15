@@ -24,13 +24,6 @@ trait ResuelveCatalogos
             'placas' => WialonUnidad::query()
                 ->whereNotNull('placa')->where('placa', '!=', '')
                 ->orderBy('placa')->pluck('placa')->values(),
-            // Contador de Wialon por placa (mismo que usa `ValidaKilometraje`
-            // en el servidor): la PWA lo cachea para poder avisar al
-            // instante, sin señal, que un kilometraje no puede retroceder.
-            'kilometrajes' => WialonUnidad::query()
-                ->whereNotNull('placa')->where('placa', '!=', '')
-                ->whereNotNull('contador_kilometraje_km')
-                ->pluck('contador_kilometraje_km', 'placa'),
             // Unidades con un tramo abierto (EN RUTA) ahora mismo, sin importar
             // qué conductor lo inició: "Nueva Ruta" la usa para avisar al
             // instante, al elegir la placa, que esa unidad ya está en curso

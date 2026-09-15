@@ -118,9 +118,11 @@ test('registrar un avance que finaliza avisa a los telefonos de la geocerca del 
 
     Http::assertSent(fn (Request $r) => str_contains((string) $r['Contenido'], 'finalizada')
         && $r['Destinatarios'] === ['51922222222']);
+    // La parada par que finaliza la hoja manda solo el aviso final.
+    Http::assertNotSent(fn (Request $r) => str_contains((string) $r['Contenido'], 'tramo cerrado'));
 });
 
-test('registrar un avance sin condicionaFin no manda whatsapp de finalizada', function () {
+test('cerrar un tramo (parada par) avisa por whatsapp a la geocerca de esa parada, sin finalizar', function () {
     fakeWhatsappOk();
     Storage::fake('public');
     Contacto::factory()->create(['geocerca' => 'DESTINO', 'telefonos' => ['922222222']]);
@@ -140,7 +142,21 @@ test('registrar un avance sin condicionaFin no manda whatsapp de finalizada', fu
         ],
     ])->assertCreated();
 
-    Http::assertNothingSent();
+    Http::assertSentCount(1);
+    Http::assertSent(fn (Request $r) => str_contains((string) $r['Contenido'], "*Hoja de ruta {$idruta}* tramo cerrado")
+        && $r['Destinatarios'] === ['51922222222']);
+});
+
+test('abrir un tramo nuevo (parada impar) no avisa por whatsapp', function () {
+    fakeWhatsappOk();
+    Contacto::factory()->create(['geocerca' => 'DESTINO', 'telefonos' => ['922222222']]);
+    Sanctum::actingAs(conductorPwa(), ['*']);
+
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'ORIGEN', 'kilometraje' => '100'])->json('data.idruta');
+    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['geocerca' => 'DESTINO', 'kilometraje' => '150'])->assertCreated();
+    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['geocerca' => 'DESTINO', 'kilometraje' => '200'])->assertCreated();
+
+    Http::assertSentCount(1);
 });
 
 test('el reintento con el mismo Idempotency-Key no duplica el whatsapp', function () {

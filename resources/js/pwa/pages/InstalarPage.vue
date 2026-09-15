@@ -42,10 +42,22 @@ const instalando = ref(false);
 const instalado = ref(false);
 const esIOS = ref(false);
 
+function olvidarInstaladaLocal(): void {
+    try {
+        localStorage.removeItem(LS_INSTALADA);
+    } catch {
+        /* almacenamiento no disponible */
+    }
+}
+
 function onBeforeInstallPrompt(e: Event): void {
     e.preventDefault();
     eventoDiferido = e as EventoInstalacion;
     puedeInstalar.value = true;
+    // El navegador solo ofrece instalar si NO está instalada: la marca local
+    // quedó vieja (se desinstaló).
+    instalado.value = false;
+    olvidarInstaladaLocal();
 }
 
 function onAppInstalled(): void {
@@ -99,22 +111,14 @@ async function instalar(): Promise<void> {
         <div class="flex flex-col items-center gap-2 text-center">
             <h1 class="text-xl font-bold">HRControl Tecavi</h1>
             <p class="max-w-xs text-sm text-gray-500 dark:text-gray-400">
-                Instalá la app en tu celular para usarla como cualquier otra,
-                con ícono propio y sin abrir el navegador cada vez.
+                Esta app solo funciona instalada en tu celular. Instálala para
+                usarla con su propio ícono, sin abrir el navegador.
             </p>
         </div>
 
         <div class="flex w-full flex-col gap-3">
-            <p
-                v-if="instalado"
-                class="rounded-xl bg-emerald-50 px-4 py-3 text-center text-sm font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
-            >
-                Ya está instalado en tu dispositivo — abrilo desde el ícono en
-                tu pantalla de inicio.
-            </p>
-
             <button
-                v-else-if="puedeInstalar"
+                v-if="puedeInstalar"
                 type="button"
                 :disabled="instalando"
                 class="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#b51927] text-lg font-bold text-white transition active:scale-[.98] disabled:opacity-60"
@@ -124,13 +128,21 @@ async function instalar(): Promise<void> {
                 {{ instalando ? 'Instalando…' : 'Instalar aplicativo' }}
             </button>
 
+            <p
+                v-else-if="instalado"
+                class="rounded-xl bg-emerald-50 px-4 py-3 text-center text-sm font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+            >
+                Ya está instalada en tu dispositivo — ábrela desde el ícono en
+                tu pantalla de inicio.
+            </p>
+
             <div
                 v-else-if="esIOS"
                 class="flex items-start gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
             >
                 <Share class="mt-0.5 h-5 w-5 shrink-0 text-[#b51927]" />
                 <span>
-                    Tocá <strong>Compartir</strong> y elegí
+                    Toca <strong>Compartir</strong> y elige
                     <strong>«Agregar a pantalla de inicio»</strong> para
                     instalar la app.
                 </span>
@@ -140,7 +152,7 @@ async function instalar(): Promise<void> {
                 v-else
                 class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-center text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
             >
-                Buscá «Instalar aplicación» o «Agregar a pantalla de inicio» en
+                Busca «Instalar aplicación» o «Agregar a pantalla de inicio» en
                 el menú del navegador.
             </p>
         </div>

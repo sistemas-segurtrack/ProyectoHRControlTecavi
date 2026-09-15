@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router';
+import { api } from './lib/api';
 import { corriendoInstalada } from './lib/dispositivo';
 import { useAuth } from './stores/auth';
 import ContinuarPage from './pages/ContinuarPage.vue';
@@ -13,15 +14,9 @@ const BASE = import.meta.env.VITE_PWA_BASE_PATH ?? '';
 export const router = createRouter({
     history: createWebHistory(`${BASE}/pwa`),
     routes: [
-        // La raíz ("/pwa") es el `start_url` del manifest: lo primero que ve
-        // un navegador normal es la página de instalar, no el login. Una vez
-        // instalada (o si ya venía autenticado), el guard de abajo la salta.
-        {
-            path: '/',
-            name: 'instalar',
-            component: InstalarPage,
-            meta: { publica: true },
-        },
+        // La raíz ("/pwa") es el `start_url` del manifest. En una pestaña
+        // normal del navegador es la única pantalla disponible.
+        { path: '/', name: 'instalar', component: InstalarPage },
         {
             path: '/login',
             name: 'login',
@@ -35,14 +30,34 @@ export const router = createRouter({
     ],
 });
 
+/**
+ * La app solo funciona instalada. El almacenamiento del navegador sobrevive a
+ * la desinstalación, así que abrir el link en una pestaña normal con una
+ * sesión guardada la cierra (y revoca el token). La cola offline (IndexedDB)
+ * no se toca: sus envíos salen cuando ese conductor vuelva a entrar.
+ */
+function cerrarSesionDelNavegador(): void {
+    const { cerrarSesion } = useAuth();
+
+    // `api()` arma la cabecera con el token antes de su primer `await`, así
+    // que el logout sale con el token aunque la sesión se borre enseguida.
+    api('/logout', { method: 'POST' }).catch(() => {
+        /* sin señal o ya revocado: igual se borra la sesión local */
+    });
+    cerrarSesion();
+}
+
 router.beforeEach((to) => {
     const { autenticado } = useAuth();
 
-    // La página de instalar solo tiene sentido en una pestaña normal, sin
-    // instalar todavía y sin sesión — a cualquier otro caso (ya instalada, o
-    // ya logueado) se lo manda directo al flujo normal.
-    if (to.name === 'instalar' && (corriendoInstalada() || autenticado.value)) {
-        return { name: 'home' };
+    if (!corriendoInstalada()) {
+        if (autenticado.value) cerrarSesionDelNavegador();
+
+        return to.name === 'instalar' ? true : { name: 'instalar' };
+    }
+
+    if (to.name === 'instalar') {
+        return { name: autenticado.value ? 'home' : 'login' };
     }
     if (to.meta.publica !== true && !autenticado.value) {
         return { name: 'login' };

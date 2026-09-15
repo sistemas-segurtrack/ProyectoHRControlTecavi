@@ -26,10 +26,8 @@ class CrearRutaRequest extends FormRequest implements ConDocumentoAdjunto
             'copiloto' => ['nullable', 'string', 'max:100'],
             'precintos' => ['nullable', 'string', 'max:50'],
             'carreta' => ['nullable', 'string', 'max:45'],
-            // Al iniciar una hoja de ruta no se compara contra el contador de
-            // Wialon: puede estar desactualizado (se sincroniza cada minuto) y
-            // rechazaba de arranque kilometrajes reales válidos. Solo se
-            // valida "no retrocede" dentro de la propia ruta, en `Continuar`.
+            // Primera parada: no hay parada anterior con qué comparar (ver
+            // `ValidaKilometraje`) — solo obligatorio y entero.
             'kilometraje' => $this->reglasKilometraje(),
             'geocerca' => ['required', 'string', 'max:200'],
             'coordenada' => ['nullable', 'string', 'max:50'],

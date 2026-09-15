@@ -8,7 +8,12 @@ import CampoTexto from '../components/CampoTexto.vue';
 import EstadoUbicacion from '../components/EstadoUbicacion.vue';
 import { api, ApiError, fechaHoraLocal, uuid } from '../lib/api';
 import { useUbicacion } from '../lib/dispositivo';
-import { errorKilometraje, referenciaKilometraje } from '../lib/kilometraje';
+import {
+    armarCuerpo,
+    faltanteAntesDeEnviar,
+    textoONulo,
+} from '../lib/formularioAvance';
+import { errorKilometraje } from '../lib/kilometraje';
 import { encolarCrearRuta } from '../lib/sincronizar';
 import { rutaFinalizada, useAuth, type Ruta } from '../stores/auth';
 
@@ -31,16 +36,8 @@ const cargando = ref(false);
 const error = ref('');
 const idempotencyKey = uuid();
 
-// Al iniciar una hoja de ruta no se compara contra el contador de Wialon
-// (puede estar desactualizado y rechazar de arranque un kilometraje real
-// válido) — por eso no se le pasa la placa, igual que ya no lo hace el
-// servidor (CrearRutaRequest).
-const referenciaKm = computed(() =>
-    referenciaKilometraje(state.catalogos, null),
-);
-const errorKm = computed(() =>
-    errorKilometraje(form.value.kilometraje, referenciaKm.value),
-);
+// Parada 1: no hay parada anterior con qué comparar (solo entero y tope).
+const errorKm = computed(() => errorKilometraje(form.value.kilometraje, null));
 
 // Al elegir la placa se detecta al instante (con el catálogo ya cacheado,
 // sin esperar al servidor) si esa unidad ya tiene un tramo abierto con
@@ -51,77 +48,54 @@ const idRutaEnCurso = computed(
     () => state.catalogos.unidades_en_ruta?.[form.value.placa.trim()] ?? null,
 );
 
-function cuerpo(): FormData | Record<string, string | null> {
-    const base = {
-        placa: form.value.placa.trim(),
-        copiloto: form.value.copiloto.trim() || null,
-        precintos: form.value.precintos.trim() || null,
-        carreta: form.value.carreta.trim() || null,
-        geocerca: form.value.geocerca.trim() || null,
-        // La coordenada se toma automáticamente de la ubicación del dispositivo.
-        coordenada: ubicacion.coordenada,
-        observacion: form.value.observacion.trim() || null,
-        fhRegistro: form.value.fhRegistro || null,
-        kilometraje: form.value.kilometraje.trim() || null,
-    };
-
-    if (!adjunto.value?.activo) return base;
-
-    const fd = new FormData();
-    for (const [k, v] of Object.entries(base)) {
-        if (v !== null) fd.append(k, v);
-    }
-    adjunto.value.anexar(fd);
-    return fd;
-}
-
 async function iniciar(): Promise<void> {
     if (idRutaEnCurso.value) {
         error.value = `Esta unidad ya tiene una hoja de ruta en curso (${idRutaEnCurso.value}). Continúala o finalízala antes de iniciar una nueva.`;
         return;
     }
-    if (adjunto.value && !adjunto.value.listo) {
-        error.value =
-            'Completa el tipo, el código y la foto del documento adjunto.';
+    const faltante = faltanteAntesDeEnviar({
+        adjunto: adjunto.value,
+        kilometraje: form.value.kilometraje,
+        geocerca: form.value.geocerca,
+    });
+    if (faltante) {
+        error.value = faltante;
         return;
     }
-    if (form.value.kilometraje.trim() === '') {
-        error.value = 'El kilometraje es obligatorio.';
-        return;
-    }
-    if (form.value.geocerca.trim() === '') {
-        error.value = 'El lugar es obligatorio.';
-        return;
-    }
-    // El aviso ya está visible junto al campo (se actualiza al instante
-    // mientras se escribe) — no hace falta duplicarlo en el banner general.
+    // El aviso de km ya está visible junto al campo.
     if (errorKm.value) return;
     error.value = '';
     cargando.value = true;
-    const cuerpoArmado = cuerpo();
+
+    const campos = {
+        placa: form.value.placa.trim(),
+        copiloto: textoONulo(form.value.copiloto),
+        precintos: textoONulo(form.value.precintos),
+        carreta: textoONulo(form.value.carreta),
+        geocerca: textoONulo(form.value.geocerca),
+        // La coordenada se toma automáticamente de la ubicación del dispositivo.
+        coordenada: ubicacion.coordenada,
+        observacion: textoONulo(form.value.observacion),
+        fhRegistro: form.value.fhRegistro || null,
+        kilometraje: textoONulo(form.value.kilometraje),
+    };
+    const cuerpo = armarCuerpo(campos, adjunto.value);
     try {
         const res = await api<{ data: Ruta }>('/rutas', {
             method: 'POST',
             idempotencyKey,
-            body: cuerpoArmado,
+            body: cuerpo,
         });
-        // Si el documento adjunto finaliza la hoja de ruta (p. ej. un recibo
-        // de combustible), ya no queda "en curso" — Home debe ofrecer
-        // "Nueva Ruta" y no "Continuar" sobre algo que ya terminó.
+        // Si el documento adjunto finaliza la hoja de ruta, ya no queda "en
+        // curso" — Home debe ofrecer "Nueva Ruta" y no "Continuar".
         setRutaActiva(rutaFinalizada(res.data) ? null : res.data);
         router.replace({ name: 'home' });
     } catch (e) {
         if (e instanceof ApiError && e.status === 0) {
             // Sin señal: se arma localmente y se manda cuando vuelva.
-            const local = await encolarCrearRuta(cuerpoArmado, {
-                placa: form.value.placa.trim(),
+            const local = await encolarCrearRuta(cuerpo, {
+                ...campos,
                 piloto: state.conductor?.nombre ?? '',
-                copiloto: form.value.copiloto.trim() || null,
-                precintos: form.value.precintos.trim() || null,
-                carreta: form.value.carreta.trim() || null,
-                geocerca: form.value.geocerca.trim() || null,
-                coordenada: ubicacion.coordenada,
-                kilometraje: form.value.kilometraje.trim() || null,
                 fhRegistro: form.value.fhRegistro,
                 finaliza: adjunto.value?.finalizara ?? false,
             });

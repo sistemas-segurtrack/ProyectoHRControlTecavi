@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { MapPinOff } from '@lucide/vue';
-import { computed, onMounted, ref } from 'vue';
-import { RouterView, useRoute } from 'vue-router';
+import { computed, onMounted, ref, watch } from 'vue';
+import { RouterView, useRoute, useRouter } from 'vue-router';
 import { aplicarActualizacion, hayActualizacion } from './lib/actualizaciones';
 import {
-    corriendoInstalada,
     iniciarUbicacion,
     precargarCamara,
     reintentarUbicacion,
@@ -12,26 +11,39 @@ import {
 } from './lib/dispositivo';
 import { usePendientes } from './lib/outbox';
 import { descartar, procesarCola, sincronizando } from './lib/sincronizar';
+import { useAuth } from './stores/auth';
 
 const route = useRoute();
+const router = useRouter();
+const { autenticado } = useAuth();
 const offline = ref(!navigator.onLine);
 const { resumen: cola } = usePendientes();
 const verErrores = ref(false);
 const { ubicacion } = useUbicacion();
 
-// La ubicación es obligatoria SOLO para quien tiene la PWA instalada (ícono
-// en el celular) -- una visita normal por navegador la usa igual en segundo
-// plano, pero no queda bloqueada sin ella. La página de instalar es aparte:
-// son solo instrucciones, todavía no hay nada que registrar. Mientras el
-// permiso está "desconocido" (esperando el primer fix o la respuesta del
-// diálogo nativo) NO bloquea -- solo cuando ya se sabe que no hay forma de
-// conseguir ubicación (denegado / GPS apagado / no soportado).
+// La app solo corre instalada (ver router.ts), así que la ubicación es
+// obligatoria en toda ella salvo en la página de instalar (solo
+// instrucciones). Mientras el permiso está "desconocido" (esperando el primer
+// fix o la respuesta del diálogo nativo) NO bloquea — solo cuando ya se sabe
+// que no hay forma de conseguirla (denegado / GPS apagado / no soportado).
 const bloqueadoPorUbicacion = computed(
     () =>
         route.name !== 'instalar' &&
-        corriendoInstalada() &&
         ['denegado', 'gps-apagado', 'no-soportado'].includes(ubicacion.permiso),
 );
+
+// Si la sesión se cierra por detrás (p. ej. el servidor responde 401 al
+// sincronizar), no dejar al conductor en una pantalla que ya no puede usar.
+// En el navegador (no instalada) de eso ya se encarga el router.
+watch(autenticado, (sesionActiva) => {
+    const enPantallaPrivada =
+        route.name !== undefined &&
+        route.name !== 'instalar' &&
+        route.meta.publica !== true;
+    if (!sesionActiva && enPantallaPrivada) {
+        void router.replace({ name: 'login' });
+    }
+});
 
 onMounted(() => {
     window.addEventListener('online', () => {
@@ -54,6 +66,8 @@ onMounted(() => {
     <div
         class="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100"
     >
+        <!-- Solo se llega a ver en un formulario: fuera de ellos la versión
+             nueva se aplica sola (ver lib/actualizaciones.ts). -->
         <div
             v-if="hayActualizacion"
             class="flex items-center justify-center gap-2 bg-emerald-600 px-4 py-1.5 text-center text-xs font-semibold text-white"
@@ -123,7 +137,7 @@ onMounted(() => {
             </ul>
         </div>
 
-        <!-- Ubicación obligatoria (solo instalada): sin ubicación disponible
+        <!-- Ubicación obligatoria: sin ubicación disponible
              no se ve ni el login -- el conductor no puede "iniciar" la app.
              No bloquea mientras está "desconocido" (esperando el primer fix
              o el diálogo nativo) -- solo cuando ya se sabe que no hay forma

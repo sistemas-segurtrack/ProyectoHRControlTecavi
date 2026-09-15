@@ -41,6 +41,19 @@ class ConstruirResumenHojaRuta
      */
     public function paraFinalizacion(string $idruta): ?ResumenHojaRuta
     {
+        return $this->conUltimoOrden($idruta);
+    }
+
+    /**
+     * Al cerrarse un tramo: usa el último orden (el que cerró el tramo), con sus documentos.
+     */
+    public function paraTramoCerrado(string $idruta): ?ResumenHojaRuta
+    {
+        return $this->conUltimoOrden($idruta);
+    }
+
+    private function conUltimoOrden(string $idruta): ?ResumenHojaRuta
+    {
         $ruta = Ruta::query()
             ->with(['detalles' => fn ($q) => $q->orderBy('orden'), 'detalles.documentos.tipoDocumento'])
             ->find($idruta);

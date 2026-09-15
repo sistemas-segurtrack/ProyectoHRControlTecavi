@@ -1,12 +1,19 @@
 /* Service Worker — PWA Conductor Tecavi.
-   App-shell cacheado + assets inmutables. La API nunca se cachea aquí
-   (la cola offline se maneja en la app, Fase 4). */
+   App-shell + assets del build cacheados. La API nunca se cachea aquí (la
+   cola offline se maneja en la app: resources/js/pwa/lib/outbox.ts).
 
-const CACHE = 'tecavi-pwa-v2';
-// El servidor reemplaza este placeholder por el prefijo real (vacío, o algo
-// como "/hrcontrol" si la app va detrás de un proxy en subpath) al servir
-// este archivo — ver routes/pwa.php.
+   El servidor reemplaza los placeholders al servir este archivo (ver
+   App\Pwa\Controllers\ServiceWorkerController): el prefijo del subpath, la
+   versión del build y la lista de assets a precachear. Como la versión
+   cambia en cada deploy, el navegador ve un sw.js nuevo, lo instala y la
+   app se actualiza sola (resources/js/pwa/lib/actualizaciones.ts). */
+
 const BASE = '__PWA_BASE__';
+const VERSION = '__PWA_VERSION__';
+// El servidor reemplaza el comentario + `[]` por la lista JSON de URLs.
+const ASSETS = /* __PWA_ASSETS__ */ [];
+
+const CACHE = `tecavi-pwa-${VERSION}`;
 const SHELL_URL = `${BASE}/pwa`;
 
 const OFFLINE_HTML = `<!doctype html><html lang="es"><head><meta charset="utf-8">
@@ -21,17 +28,48 @@ display:flex;align-items:center;justify-content:center;margin:0 auto 1rem}</styl
 <button onclick="location.reload()" style="margin-top:1rem;padding:.75rem 1.5rem;border:0;border-radius:.75rem;background:#b51927;color:#fff;font-weight:700">Reintentar</button>
 </div></body></html>`;
 
+/**
+ * Guarda una copia de la respuesta (solo si es 2xx) y devuelve la original.
+ * La copia se saca ANTES de entregar la respuesta: después su cuerpo ya
+ * estaría consumido y `clone()` fallaría.
+ */
+function guardar(clave, res) {
+    if (res.ok) {
+        const copia = res.clone();
+        caches
+            .open(CACHE)
+            .then((c) => c.put(clave, copia))
+            .catch(() => {
+                /* cuota llena o cache no disponible: se sirve igual */
+            });
+    }
+    return res;
+}
+
+function shellOffline() {
+    return caches.match(SHELL_URL).then(
+        (cached) =>
+            cached ??
+            new Response(OFFLINE_HTML, {
+                headers: { 'Content-Type': 'text/html; charset=utf-8' },
+            }),
+    );
+}
+
 self.addEventListener('install', (event) => {
+    // allSettled: un asset que falle no debe impedir que la versión nueva se instale.
     event.waitUntil(
         caches
             .open(CACHE)
-            .then((c) => c.add(SHELL_URL))
-            .catch(() => {}),
+            .then((c) =>
+                Promise.allSettled([SHELL_URL, ...ASSETS].map((u) => c.add(u))),
+            ),
     );
     self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
+    // Borra las caches de versiones anteriores (sus assets ya no se usan).
     event.waitUntil(
         caches
             .keys()
@@ -56,63 +94,42 @@ self.addEventListener('fetch', (event) => {
     // La API va siempre a la red.
     if (url.pathname.startsWith(`${BASE}/api/`)) return;
 
-    // Navegacion (abrir la app): red primero, si falla usa el shell cacheado y luego la pagina offline.
+    // Navegación (abrir la app): red primero. Sin señal, o si el servidor
+    // responde 5xx (p. ej. durante un deploy), usa el shell cacheado.
     if (request.mode === 'navigate') {
         event.respondWith(
             fetch(request)
-                .then((res) => {
-                    caches
-                        .open(CACHE)
-                        .then((c) => c.put(SHELL_URL, res.clone()));
-                    return res;
-                })
-                .catch(() =>
-                    caches.match(SHELL_URL).then(
-                        (cached) =>
-                            cached ??
-                            new Response(OFFLINE_HTML, {
-                                headers: {
-                                    'Content-Type': 'text/html; charset=utf-8',
-                                },
-                            }),
-                    ),
-                ),
+                .then((res) =>
+                    res.status >= 500
+                        ? caches.match(SHELL_URL).then((c) => c ?? res)
+                        : guardar(SHELL_URL, res),
+                )
+                .catch(shellOffline),
         );
         return;
     }
 
-    // Assets del build de Vite: cache primero. El nombre de archivo lleva un
-    // hash del contenido (p. ej. app-B9f7vUcm.js), así que nunca queda un
-    // cache desactualizado bajo el mismo nombre — un cambio real siempre
-    // pide un archivo distinto.
+    // Assets del build de Vite: cache primero. El nombre lleva un hash del
+    // contenido, así que un cambio real siempre pide un archivo distinto.
     if (
         url.pathname.startsWith(`${BASE}/build/`) ||
         /\.(?:js|css|woff2?)$/.test(url.pathname)
     ) {
         event.respondWith(
-            caches.match(request).then(
-                (cached) =>
-                    cached ??
-                    fetch(request).then((res) => {
-                        if (res.ok) {
-                            const copia = res.clone();
-                            caches
-                                .open(CACHE)
-                                .then((c) => c.put(request, copia));
-                        }
-                        return res;
-                    }),
-            ),
+            caches
+                .match(request)
+                .then(
+                    (cached) =>
+                        cached ??
+                        fetch(request).then((res) => guardar(request, res)),
+                ),
         );
         return;
     }
 
-    // Manifest e íconos/logos bajo /recursos/: el NOMBRE de archivo no
-    // cambia aunque cambie el contenido (nuevo logo, nombre de la app...),
-    // así que "cache primero" los dejaría pegados para siempre. Cache-y-
-    // -revalida: responde al toque con lo cacheado si existe (rápido,
-    // funciona offline), pero siempre dispara un fetch en segundo plano que
-    // actualiza el cache para la próxima vez.
+    // Manifest e íconos bajo /recursos/: el nombre no cambia aunque cambie
+    // el contenido, así que se responde con lo cacheado (rápido, funciona
+    // offline) y se revalida en segundo plano para la próxima vez.
     if (
         url.pathname.startsWith(`${BASE}/recursos/`) ||
         url.pathname.endsWith('.webmanifest')
@@ -120,15 +137,8 @@ self.addEventListener('fetch', (event) => {
         event.respondWith(
             caches.match(request).then((cached) => {
                 const actualizado = fetch(request)
-                    .then((res) => {
-                        if (res.ok) {
-                            caches
-                                .open(CACHE)
-                                .then((c) => c.put(request, res.clone()));
-                        }
-                        return res;
-                    })
-                    .catch(() => cached);
+                    .then((res) => guardar(request, res))
+                    .catch(() => cached ?? Response.error());
 
                 return cached ?? actualizado;
             }),

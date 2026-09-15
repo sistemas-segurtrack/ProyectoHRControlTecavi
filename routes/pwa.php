@@ -2,6 +2,7 @@
 
 use App\Pwa\Controllers\AuthController;
 use App\Pwa\Controllers\RutaController;
+use App\Pwa\Controllers\ServiceWorkerController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -37,20 +38,7 @@ Route::middleware('api')
     });
 
 // Service worker servido por ruta (así el scope /pwa/ es válido, sin carpeta pública).
-// El placeholder __PWA_BASE__ se reemplaza por config('pwa.base_path') — vacío
-// salvo que la app vaya detrás de un proxy en subpath (ver config/pwa.php).
-Route::get('/pwa/sw.js', function () {
-    $contenido = str_replace(
-        '__PWA_BASE__',
-        config('pwa.base_path'),
-        (string) file_get_contents(resource_path('pwa/sw.js')),
-    );
-
-    return response($contenido, 200, [
-        'Content-Type' => 'application/javascript',
-        'Cache-Control' => 'no-cache',
-    ]);
-})->name('pwa.sw');
+Route::get('/pwa/sw.js', ServiceWorkerController::class)->name('pwa.sw');
 
 // Manifest de instalación: se genera (no es un archivo público estático) para
 // poder anteponerle el prefijo del subpath a start_url/scope/íconos.

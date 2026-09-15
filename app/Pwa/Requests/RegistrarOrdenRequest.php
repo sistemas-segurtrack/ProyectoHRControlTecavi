@@ -39,32 +39,19 @@ class RegistrarOrdenRequest extends FormRequest implements ConDocumentoAdjunto
                 return;
             }
 
-            $this->validarKilometrajeNoRetrocede($validator, $ruta->placa, $this->minimoDelTramo($ruta));
+            $this->validarKilometrajeMayorQueAnterior($validator, $this->kilometrajeAnterior($ruta));
         });
     }
 
     /**
-     * Cada tramo de la hoja de ruta es independiente (parada impar = inicio,
-     * parada par = fin): el kilometraje de un tramo ya cerrado no debe
-     * condicionar el del tramo siguiente. Solo dentro del MISMO tramo el
-     * "fin" no puede ser menor que su propio "inicio" — por eso, si este
-     * nuevo orden cierra el tramo abierto, el mínimo es el kilometraje de
-     * esa misma parada de inicio; si en cambio abre un tramo nuevo, no hay
-     * mínimo de la ruta (solo sigue aplicando el contador de Wialon).
+     * Kilometraje de la última parada registrada en la hoja, sin importar el
+     * tramo (el odómetro es uno solo). `null` si no hay paradas o la última
+     * no tiene kilometraje (registros anteriores a que fuera obligatorio).
      */
-    private function minimoDelTramo(Ruta $ruta): ?int
+    private function kilometrajeAnterior(Ruta $ruta): ?int
     {
-        $ultimoDetalle = $ruta->detalles()->orderByDesc('orden')->first();
-        if ($ultimoDetalle === null) {
-            return null;
-        }
+        $kilometraje = $ruta->detalles()->orderByDesc('orden')->value('kilometraje');
 
-        $siguienteOrden = $ultimoDetalle->orden + 1;
-        $cierraTramo = $siguienteOrden % 2 === 0;
-        if (! $cierraTramo) {
-            return null;
-        }
-
-        return $ultimoDetalle->kilometraje !== null ? (int) $ultimoDetalle->kilometraje : null;
+        return is_numeric($kilometraje) ? (int) $kilometraje : null;
     }
 }

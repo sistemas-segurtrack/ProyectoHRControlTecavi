@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api, ApiError } from '../lib/api';
+import { procesarCola } from '../lib/sincronizar';
 import { useAuth, type Sesion } from '../stores/auth';
 
 const router = useRouter();
@@ -28,6 +29,9 @@ async function entrar(): Promise<void> {
             body: { codigo: codigo.value.trim(), password: password.value },
         });
         iniciarSesion(sesion);
+        // Envíos que quedaron pendientes de este conductor (p. ej. si la
+        // sesión se cerró con avances sin señal todavía en la cola).
+        void procesarCola();
         router.replace({ name: 'home' });
     } catch (e) {
         error.value =

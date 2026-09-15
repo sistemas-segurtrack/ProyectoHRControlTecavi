@@ -13,7 +13,7 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker
             .register(`${base}/pwa/sw.js`, { scope: `${base}/pwa/` })
-            .then((registro) => vigilarActualizaciones(registro))
+            .then((registro) => vigilarActualizaciones(registro, router))
             .catch(() => {
                 /* el SW es opcional; la app funciona sin él */
             });

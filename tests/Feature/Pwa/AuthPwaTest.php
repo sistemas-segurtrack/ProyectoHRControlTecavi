@@ -18,7 +18,6 @@ test('login válido devuelve token, conductor y catálogos', function () {
         ->assertJsonPath('conductor.nombre', 'CONDUCTOR 9A000042')
         ->assertJsonPath('ruta_activa', null)
         ->assertJsonPath('catalogos.placas', ['TEI838'])
-        ->assertJsonPath('catalogos.kilometrajes.TEI838', 12345)
         ->assertJsonPath('catalogos.carretas', ['ATT888'])
         ->assertJsonPath('catalogos.geocercas', ['PLANTA LIMA'])
         ->assertJsonPath('catalogos.copilotos', ['CONDUCTOR 9A000099'])

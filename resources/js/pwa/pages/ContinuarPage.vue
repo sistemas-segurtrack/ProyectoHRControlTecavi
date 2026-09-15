@@ -8,7 +8,12 @@ import CampoTexto from '../components/CampoTexto.vue';
 import EstadoUbicacion from '../components/EstadoUbicacion.vue';
 import { api, ApiError, fechaHoraLocal, uuid } from '../lib/api';
 import { useUbicacion } from '../lib/dispositivo';
-import { errorKilometraje, referenciaKilometraje } from '../lib/kilometraje';
+import {
+    armarCuerpo,
+    faltanteAntesDeEnviar,
+    textoONulo,
+} from '../lib/formularioAvance';
+import { errorKilometraje, kilometrajeAnterior } from '../lib/kilometraje';
 import { encolarContinuar } from '../lib/sincronizar';
 import { rutaFinalizada, useAuth, type Ruta } from '../stores/auth';
 
@@ -34,21 +39,18 @@ const adjunto = useTemplateRef('adjunto');
 const cargando = ref(false);
 const error = ref('');
 
-const referenciaKm = computed(() =>
-    referenciaKilometraje(
-        state.catalogos,
-        ruta.value?.placa ?? null,
-        ruta.value?.ordenes ?? [],
-    ),
+// El km debe superar al de la parada anterior (también sin señal: las
+// paradas encoladas ya están en `ruta.ordenes`).
+const kmAnterior = computed(() =>
+    kilometrajeAnterior(ruta.value?.ordenes ?? []),
 );
 const errorKm = computed(() =>
-    errorKilometraje(form.value.kilometraje, referenciaKm.value),
+    errorKilometraje(form.value.kilometraje, kmAnterior.value),
 );
 
-// Espejo de `RegistrarOrdenRequest::minimoDelTramo()`: parada impar = inicio
-// de un tramo, parada par = su fin. Si este avance ABRE un tramo nuevo, un
-// documento que finaliza toda la hoja (RECIBO COMBUSTIBLE) no debe
-// ofrecerse todavía — recién se está empezando ese tramo.
+// Parada impar = inicio de un tramo, parada par = su fin. Si este avance
+// ABRE un tramo nuevo, un documento que finaliza toda la hoja (RECIBO
+// COMBUSTIBLE) no debe ofrecerse todavía.
 const abreTramo = computed(() => {
     const ultimoOrden = ruta.value?.ordenes.at(-1)?.orden ?? 0;
     return (ultimoOrden + 1) % 2 === 1;
@@ -64,65 +66,46 @@ function limpiar(): void {
     adjunto.value?.reset();
 }
 
-function cuerpo(): FormData | Record<string, string | null> {
-    const base = {
-        geocerca: form.value.geocerca.trim() || null,
-        // Coordenada automática de la ubicación del dispositivo.
-        coordenada: ubicacion.coordenada,
-        fhRegistro: form.value.fhRegistro || null,
-        kilometraje: form.value.kilometraje.trim() || null,
-        observacion: form.value.observacion.trim() || null,
-    };
-
-    if (!adjunto.value?.activo) return base;
-
-    const fd = new FormData();
-    for (const [k, v] of Object.entries(base)) {
-        if (v !== null) fd.append(k, v);
-    }
-    adjunto.value.anexar(fd);
-    return fd;
-}
-
 async function registrar(): Promise<void> {
     if (!ruta.value) return;
-    if (adjunto.value && !adjunto.value.listo) {
-        error.value =
-            'Completa el tipo, el código y la foto del documento adjunto.';
+    const faltante = faltanteAntesDeEnviar({
+        adjunto: adjunto.value,
+        kilometraje: form.value.kilometraje,
+        geocerca: form.value.geocerca,
+    });
+    if (faltante) {
+        error.value = faltante;
         return;
     }
-    if (form.value.kilometraje.trim() === '') {
-        error.value = 'El kilometraje es obligatorio.';
-        return;
-    }
-    if (form.value.geocerca.trim() === '') {
-        error.value = 'El lugar es obligatorio.';
-        return;
-    }
-    // El aviso ya está visible junto al campo (se actualiza al instante
-    // mientras se escribe) — no hace falta duplicarlo en el banner general.
+    // El aviso de km ya está visible junto al campo.
     if (errorKm.value) return;
     error.value = '';
     cargando.value = true;
-    const cuerpoArmado = cuerpo();
+
+    const campos = {
+        geocerca: textoONulo(form.value.geocerca),
+        // Coordenada automática de la ubicación del dispositivo.
+        coordenada: ubicacion.coordenada,
+        fhRegistro: form.value.fhRegistro || null,
+        kilometraje: textoONulo(form.value.kilometraje),
+        observacion: textoONulo(form.value.observacion),
+    };
+    const cuerpo = armarCuerpo(campos, adjunto.value);
     try {
         const res = await api<{ data: Ruta }>(
             `/rutas/${ruta.value.idruta}/ordenes`,
-            { method: 'POST', idempotencyKey: uuid(), body: cuerpoArmado },
+            { method: 'POST', idempotencyKey: uuid(), body: cuerpo },
         );
-        // Si el documento adjunto finaliza la hoja de ruta (p. ej. un recibo
-        // de combustible), ya no queda "en curso" — Home debe ofrecer
-        // "Nueva Ruta" y no "Continuar" sobre algo que ya terminó.
+        // Si el documento adjunto finaliza la hoja de ruta, ya no queda "en
+        // curso" — Home debe ofrecer "Nueva Ruta" y no "Continuar".
         setRutaActiva(rutaFinalizada(res.data) ? null : res.data);
         limpiar();
         router.replace({ name: 'home' });
     } catch (e) {
         if (e instanceof ApiError && e.status === 0) {
             // Sin señal: se registra localmente y se manda cuando vuelva.
-            const local = await encolarContinuar(cuerpoArmado, ruta.value, {
-                geocerca: form.value.geocerca.trim() || null,
-                coordenada: ubicacion.coordenada,
-                kilometraje: form.value.kilometraje.trim() || null,
+            const local = await encolarContinuar(cuerpo, ruta.value, {
+                ...campos,
                 fhRegistro: form.value.fhRegistro,
                 finaliza: adjunto.value?.finalizara ?? false,
             });
@@ -211,7 +194,11 @@ async function registrar(): Promise<void> {
                     v-model="form.kilometraje"
                     label="Kilometraje"
                     inputmode="numeric"
-                    placeholder="Km del odómetro"
+                    :placeholder="
+                        kmAnterior === null
+                            ? 'Km del odómetro'
+                            : `Mayor a ${kmAnterior} km`
+                    "
                     required
                 />
                 <p
