@@ -56,6 +56,25 @@ const abreTramo = computed(() => {
     return (ultimoOrden + 1) % 2 === 1;
 });
 
+/**
+ * El servidor solo marca `FI` la parada que un avance POSTERIOR ya dejó
+ * atrás (`DetalleRutaObserver`) — la última parada registrada siempre llega
+ * como `ER` ("en ruta"), aunque sea PAR y ya haya cerrado su propio tramo.
+ * Acá se corrige esa última parada para la vista: una parada PAR siempre
+ * cerró su tramo (aunque la hoja completa siga sin finalizar), así que se
+ * muestra FINALIZADO; solo una IMPAR sigue de verdad "en ruta" (tramo
+ * abierto, esperando su cierre).
+ */
+function estadoAvance(o: { estado: string | null; orden: number | null }): {
+    finalizado: boolean;
+    label: string;
+} {
+    const finalizado = o.estado === 'FI' || (o.orden ?? 0) % 2 === 0;
+    return finalizado
+        ? { finalizado: true, label: 'FINALIZADO' }
+        : { finalizado: false, label: 'EN RUTA' };
+}
+
 function limpiar(): void {
     form.value = {
         geocerca: '',
@@ -149,7 +168,7 @@ async function registrar(): Promise<void> {
                     :key="o.id"
                     class="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
                 >
-                    <span class="font-semibold">#{{ o.orden }}</span>
+                    <span class="font-semibold">{{ o.orden }}</span>
                     <span class="text-gray-500">{{ o.geocerca ?? '—' }}</span>
                     <Paperclip
                         v-if="o.documentos.length"
@@ -159,12 +178,12 @@ async function registrar(): Promise<void> {
                     <span
                         class="rounded-full px-2 py-0.5 text-[11px] font-bold"
                         :class="
-                            o.estado === 'ER'
-                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
-                                : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                            estadoAvance(o).finalizado
+                                ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300'
+                                : 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
                         "
                     >
-                        {{ o.estado_label }}
+                        {{ estadoAvance(o).label }}
                     </span>
                 </li>
             </ul>
