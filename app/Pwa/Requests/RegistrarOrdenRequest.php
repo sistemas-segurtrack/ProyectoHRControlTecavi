@@ -8,6 +8,7 @@ use App\Pwa\Requests\Concerns\ValidaDocumentoAdjunto;
 use App\Pwa\Requests\Concerns\ValidaKilometraje;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Validator;
 
 class RegistrarOrdenRequest extends FormRequest implements ConDocumentoAdjunto
@@ -39,19 +40,25 @@ class RegistrarOrdenRequest extends FormRequest implements ConDocumentoAdjunto
                 return;
             }
 
-            $this->validarKilometrajeMayorQueAnterior($validator, $this->kilometrajeAnterior($ruta));
+            $this->validarKilometrajeMayorQueAnterior($validator, $ruta->kilometrajeUltimaParada());
         });
     }
 
     /**
-     * Kilometraje de la última parada registrada en la hoja, sin importar el
-     * tramo (el odómetro es uno solo). `null` si no hay paradas o la última
-     * no tiene kilometraje (registros anteriores a que fuera obligatorio).
+     * Revalida el kilometraje ya con la hoja bloqueada (`RutaController::orden()`):
+     * entre la validación de arriba y el guardado pudo registrarse otra parada
+     * de la misma hoja (el mismo conductor sincronizando desde otro celular).
+     *
+     * @throws ValidationException
      */
-    private function kilometrajeAnterior(Ruta $ruta): ?int
+    public function asegurarKilometrajeMayorQue(?int $anterior): void
     {
-        $kilometraje = $ruta->detalles()->orderByDesc('orden')->value('kilometraje');
+        $kilometraje = $this->validated('kilometraje');
 
-        return is_numeric($kilometraje) ? (int) $kilometraje : null;
+        if ($anterior !== null && is_numeric($kilometraje) && (int) $kilometraje <= $anterior) {
+            throw ValidationException::withMessages([
+                'kilometraje' => $this->mensajeKilometrajeNoMayor($anterior),
+            ]);
+        }
     }
 }

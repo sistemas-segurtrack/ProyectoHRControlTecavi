@@ -1,7 +1,7 @@
 import type { Orden } from '../stores/auth';
 
 /** Espejo de `WialonService::CONTADOR_KM_MAX` (backend). */
-export const KILOMETRAJE_MAXIMO = 4294967;
+const KILOMETRAJE_MAXIMO = 4294967;
 
 const ENTERO = /^\d+$/;
 

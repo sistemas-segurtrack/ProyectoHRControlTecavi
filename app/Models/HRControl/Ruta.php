@@ -63,6 +63,18 @@ class Ruta extends Model
     }
 
     /**
+     * Kilometraje de la última parada registrada en la hoja, sin importar el
+     * tramo (el odómetro es uno solo). `null` si no hay paradas o la última
+     * no tiene kilometraje (registros anteriores a que fuera obligatorio).
+     */
+    public function kilometrajeUltimaParada(): ?int
+    {
+        $kilometraje = $this->detalles()->orderByDesc('orden')->value('kilometraje');
+
+        return is_numeric($kilometraje) ? (int) $kilometraje : null;
+    }
+
+    /**
      * Siguiente código correlativo para una hoja de ruta: T000001, T000002, …
      */
     public static function siguienteCodigo(): string

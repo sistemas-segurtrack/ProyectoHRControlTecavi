@@ -38,10 +38,12 @@ trait ValidaKilometraje
         }
 
         if ((int) $kilometraje <= $anterior) {
-            $validator->errors()->add(
-                'kilometraje',
-                "El kilometraje debe ser mayor al de la parada anterior ({$anterior} km).",
-            );
+            $validator->errors()->add('kilometraje', $this->mensajeKilometrajeNoMayor($anterior));
         }
+    }
+
+    protected function mensajeKilometrajeNoMayor(int $anterior): string
+    {
+        return "El kilometraje debe ser mayor al de la parada anterior ({$anterior} km).";
     }
 }

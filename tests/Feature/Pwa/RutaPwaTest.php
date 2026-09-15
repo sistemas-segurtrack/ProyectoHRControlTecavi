@@ -179,6 +179,35 @@ test('si otro envío toma el mismo código T###### a la vez, crear la ruta reint
     expect($intentos)->toBe(2);
 });
 
+test('un avance que se cruza con otro de la misma hoja se revalida con el kilometraje del que entró primero', function () {
+    Sanctum::actingAs(conductorPwa(), ['*']);
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100'])
+        ->json('data.idruta');
+
+    // Simula el mismo conductor en otro celular: su parada 2 (km 200) entra
+    // justo después de validar este envío (1ª lectura de la hoja) y antes de
+    // guardarlo (2ª lectura, en el controlador).
+    $lecturas = 0;
+    Ruta::retrieved(function () use (&$lecturas, $idruta): void {
+        if (++$lecturas === 2) {
+            DB::table('detalleruta')->insert([
+                'ruta_idruta' => $idruta,
+                'orden' => 2,
+                'geocerca' => 'OTRO CELULAR',
+                'kilometraje' => '200',
+                'estado' => DetalleRuta::EN_RUTA,
+            ]);
+        }
+    });
+
+    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['geocerca' => 'DESTINO', 'kilometraje' => '150'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['kilometraje' => 'El kilometraje debe ser mayor al de la parada anterior (200 km).']);
+
+    expect(DetalleRuta::query()->where('ruta_idruta', $idruta)->orderBy('orden')->pluck('orden')->map(fn ($o) => (int) $o)->all())
+        ->toBe([1, 2]);
+});
+
 test('la unidad vuelve a estar libre una vez que su hoja de ruta finaliza', function () {
     Storage::fake('public');
     $tipo = TipoDocumento::create(['nombre' => 'GUIA', 'condicionaFin' => '1']);

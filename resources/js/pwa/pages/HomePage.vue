@@ -2,23 +2,52 @@
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../lib/api';
-import { useAuth, type Ruta } from '../stores/auth';
+import { esDelConductor, listar } from '../lib/outbox';
+import { useAuth, type Catalogos, type Ruta } from '../stores/auth';
 
 const router = useRouter();
-const { state, setRutaActiva, cerrarSesion } = useAuth();
+const { state, setRutaActiva, setCatalogos, cerrarSesion } = useAuth();
 const sincronizando = ref(false);
 
 onMounted(async () => {
     sincronizando.value = true;
     try {
-        const res = await api<{ data: Ruta | null }>('/rutas/activa');
-        setRutaActiva(res.data);
-    } catch {
-        /* offline: se usa lo que haya en memoria */
+        // Sin señal fallan las dos y se sigue con lo guardado en el celular.
+        const [activa, catalogos] = await Promise.allSettled([
+            api<{ data: Ruta | null }>('/rutas/activa'),
+            // El catálogo se guarda al iniciar sesión: sin refrescarlo,
+            // `unidades_en_ruta` quedaría viejo y "Nueva Ruta" dejaría elegir
+            // una unidad que otro conductor ya puso en ruta.
+            api<Catalogos>('/catalogos'),
+        ]);
+
+        if (catalogos.status === 'fulfilled') {
+            setCatalogos(catalogos.value);
+        }
+        if (activa.status === 'fulfilled' && !(await hayEnviosEnCola())) {
+            setRutaActiva(activa.value.data);
+        }
     } finally {
         sincronizando.value = false;
     }
 });
+
+/**
+ * Con envíos del conductor todavía en la cola, la ruta guardada en el
+ * celular (una hoja LOCAL-… o paradas sin enviar) está más al día que la del
+ * servidor: pisarla ocultaría esas paradas y dejaría como mínimo un
+ * kilometraje viejo. `procesarCola()` la reemplaza por la del servidor a
+ * medida que cada envío llega.
+ */
+async function hayEnviosEnCola(): Promise<boolean> {
+    try {
+        const conductorId = state.conductor?.id ?? null;
+
+        return (await listar()).some((e) => esDelConductor(e, conductorId));
+    } catch {
+        return false;
+    }
+}
 
 function salir(): void {
     api('/logout', { method: 'POST' }).catch(() => {

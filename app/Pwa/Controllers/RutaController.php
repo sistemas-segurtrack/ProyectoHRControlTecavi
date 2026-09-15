@@ -165,6 +165,13 @@ class RutaController extends Controller
         $finaliza = $this->documentoFinaliza($tipo);
 
         $numeroOrden = DB::transaction(function () use ($modelo, $datos, $request, $tipo, $finaliza): int {
+            // Bloquea la hoja hasta terminar: dos avances simultáneos de la misma
+            // hoja (el mismo conductor sincronizando desde dos celulares) se
+            // registran uno detrás del otro, sin repetir el número de orden y
+            // revalidando el kilometraje contra la parada que entró primero.
+            Ruta::query()->whereKey($modelo->getKey())->lockForUpdate()->first();
+            $request->asegurarKilometrajeMayorQue($modelo->kilometrajeUltimaParada());
+
             $siguienteOrden = (int) $modelo->detalles()->max('orden') + 1;
 
             /** @var DetalleRuta $orden */

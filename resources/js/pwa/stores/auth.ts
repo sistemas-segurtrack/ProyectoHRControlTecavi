@@ -11,7 +11,7 @@ export type Conductor = {
     descripcion: string | null;
 };
 
-export type TipoDocumento = {
+type TipoDocumento = {
     id: number;
     nombre: string | null;
     condiciona_fin: boolean;

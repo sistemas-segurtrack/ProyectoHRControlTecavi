@@ -12,7 +12,7 @@ const DB_NOMBRE = 'pwa-outbox';
 const DB_VERSION = 1;
 const TIENDA = 'envios';
 
-export type TipoEnvio = 'crear-ruta' | 'continuar';
+type TipoEnvio = 'crear-ruta' | 'continuar';
 
 export type EnvioPendiente = {
     /** Id propio de este envío en la cola (no confundir con `idruta`). */
