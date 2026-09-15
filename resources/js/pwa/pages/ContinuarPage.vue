@@ -213,11 +213,7 @@ async function registrar(): Promise<void> {
                     v-model="form.kilometraje"
                     label="Kilometraje"
                     inputmode="numeric"
-                    :placeholder="
-                        kmAnterior === null
-                            ? 'Km del odómetro'
-                            : `Mayor a ${kmAnterior} km`
-                    "
+                    placeholder="Kilometraje"
                     required
                 />
                 <p

@@ -34,7 +34,7 @@ export function errorKilometraje(
 
     const km = Number(texto);
     if (km > KILOMETRAJE_MAXIMO) {
-        return `El kilometraje no puede superar ${KILOMETRAJE_MAXIMO} km.`;
+        return 'Kilometraje No Permitido';
     }
     if (anterior !== null && km <= anterior) {
         return `El kilometraje debe ser mayor al de la parada anterior (${anterior} km).`;

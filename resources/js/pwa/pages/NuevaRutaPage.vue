@@ -192,7 +192,7 @@ async function iniciar(): Promise<void> {
                     v-model="form.kilometraje"
                     label="Kilometraje inicial"
                     inputmode="numeric"
-                    placeholder="Km del odómetro"
+                    placeholder="Kilometraje"
                     required
                 />
                 <p
