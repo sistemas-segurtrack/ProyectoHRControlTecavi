@@ -126,8 +126,8 @@ class Ruta extends Model
     /**
      * Hoja ACTIVA más reciente de esta placa que ya no tiene ningún tramo
      * abierto (todas sus paradas cerradas, esperando el documento que la
-     * finalice), o `null`. Una hoja nueva sobre esa unidad hereda su
-     * copiloto, precintos y carreta.
+     * finalice), o `null`. "Nueva Ruta" sobre esa unidad no crea otra hoja:
+     * sigue esta (`RutaController::seguirHoja()`).
      */
     public static function activaSinTramoAbiertoPorPlaca(string $placa): ?self
     {
@@ -135,11 +135,13 @@ class Ruta extends Model
     }
 
     /**
-     * Placa => datos que hereda una hoja nueva de esa unidad (ver
+     * Placa => datos de la hoja que se seguirá en esa unidad (ver
      * `activaSinTramoAbiertoPorPlaca()`) — el catálogo que la PWA cachea para
-     * completarlos y bloquearlos al instante en "Nueva Ruta", aun sin señal.
+     * completar y bloquear copiloto, precintos y carreta al instante en
+     * "Nueva Ruta", y exigir un kilometraje mayor al de su última parada, aun
+     * sin señal.
      *
-     * @return array<string, array{idruta: string, copiloto: ?string, precintos: ?string, carreta: ?string}>
+     * @return array<string, array{idruta: string, copiloto: ?string, precintos: ?string, carreta: ?string, kilometraje: ?int}>
      */
     public static function datosHeredablesPorPlaca(): array
     {
@@ -147,15 +149,27 @@ class Ruta extends Model
 
         $rutas = self::activasSinTramoAbierto()
             ->whereNotNull('placa')
-            ->get(['idruta', 'placa', 'copiloto', 'precintos', 'carreta']);
+            ->select(['idruta', 'placa', 'copiloto', 'precintos', 'carreta'])
+            ->selectSub(
+                DetalleRuta::query()
+                    ->select('kilometraje')
+                    ->whereColumn('ruta_idruta', 'ruta.idruta')
+                    ->orderByDesc('orden')
+                    ->limit(1),
+                'ultimo_kilometraje',
+            )
+            ->get();
 
         foreach ($rutas as $ruta) {
+            $kilometraje = $ruta->getAttribute('ultimo_kilometraje');
+
             // Vienen de la más reciente a la más antigua: queda la primera por placa.
             $datos[(string) $ruta->placa] ??= [
                 'idruta' => $ruta->idruta,
                 'copiloto' => $ruta->copiloto,
                 'precintos' => $ruta->precintos,
                 'carreta' => $ruta->carreta,
+                'kilometraje' => is_numeric($kilometraje) ? (int) $kilometraje : null,
             ];
         }
 

@@ -208,8 +208,9 @@ test('un avance que se cruza con otro de la misma hoja se revalida con el kilome
         ->toBe([1, 2]);
 });
 
-test('una hoja nueva hereda copiloto, precintos y carreta de la hoja ACTIVA sin tramos abiertos de esa unidad', function () {
-    Sanctum::actingAs(conductorPwa('11111111'), ['*']);
+test('Nueva Ruta sobre una unidad con hoja ACTIVA sin tramos abiertos sigue esa misma hoja en vez de crear otra', function () {
+    $anterior = conductorPwa('11111111');
+    Sanctum::actingAs($anterior, ['*']);
     $origen = $this->postJson('/api/pwa/rutas', [
         'placa' => 'AAA-111', 'copiloto' => 'COPILOTO ORIGEN', 'precintos' => 'P-123', 'carreta' => 'CAR-9',
         'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100',
@@ -217,16 +218,47 @@ test('una hoja nueva hereda copiloto, precintos y carreta de la hoja ACTIVA sin 
     $this->postJson("/api/pwa/rutas/{$origen}/ordenes", ['geocerca' => 'DESTINO', 'kilometraje' => '150'])
         ->assertCreated();
 
-    // Aunque el celular mande otros valores (catálogo viejo), manda la hoja activa.
+    // Aunque el celular mande otros valores (catálogo viejo), quedan los de la hoja.
     Sanctum::actingAs(conductorPwa('22222222'), ['*']);
     $this->postJson('/api/pwa/rutas', [
         'placa' => 'AAA-111', 'copiloto' => 'OTRO', 'precintos' => 'OTRO', 'carreta' => 'OTRA',
-        'geocerca' => 'PLANTA LIMA', 'kilometraje' => '500',
+        'geocerca' => 'PLANTA SUR', 'kilometraje' => '500',
     ])
         ->assertCreated()
+        ->assertJsonPath('data.idruta', $origen)
+        ->assertJsonPath('data.piloto', 'CONDUCTOR 22222222')
         ->assertJsonPath('data.copiloto', 'COPILOTO ORIGEN')
         ->assertJsonPath('data.precintos', 'P-123')
-        ->assertJsonPath('data.carreta', 'CAR-9');
+        ->assertJsonPath('data.carreta', 'CAR-9')
+        ->assertJsonCount(3, 'data.ordenes')
+        ->assertJsonPath('data.ordenes.2.orden', 3)
+        ->assertJsonPath('data.ordenes.2.geocerca', 'PLANTA SUR')
+        ->assertJsonPath('data.ordenes.2.estado', DetalleRuta::EN_RUTA);
+
+    expect(Ruta::query()->count())->toBe(1);
+
+    // La hoja pasa al conductor nuevo: la continúa él y ya no figura en curso para el anterior.
+    $this->getJson('/api/pwa/rutas/activa')->assertJsonPath('data.idruta', $origen);
+    $this->postJson("/api/pwa/rutas/{$origen}/ordenes", ['geocerca' => 'DESTINO', 'kilometraje' => '600'])
+        ->assertCreated();
+
+    Sanctum::actingAs($anterior, ['*']);
+    $this->getJson('/api/pwa/rutas/activa')->assertExactJson(['data' => null]);
+});
+
+test('al seguir la hoja de una unidad el kilometraje debe superar al de su última parada', function () {
+    Sanctum::actingAs(conductorPwa('11111111'), ['*']);
+    $origen = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100'])
+        ->json('data.idruta');
+    $this->postJson("/api/pwa/rutas/{$origen}/ordenes", ['geocerca' => 'DESTINO', 'kilometraje' => '150'])
+        ->assertCreated();
+
+    Sanctum::actingAs(conductorPwa('22222222'), ['*']);
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA SUR', 'kilometraje' => '150'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['kilometraje' => 'El kilometraje debe ser mayor al de la parada anterior (150 km).']);
+
+    expect(DetalleRuta::query()->where('ruta_idruta', $origen)->count())->toBe(2);
 });
 
 test('una unidad con su hoja ya finalizada no hereda nada', function () {

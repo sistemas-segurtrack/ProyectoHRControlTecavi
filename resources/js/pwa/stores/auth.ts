@@ -16,6 +16,8 @@ type DatosHeredados = {
     copiloto: string | null;
     precintos: string | null;
     carreta: string | null;
+    /** De la última parada de esa hoja: la que se registre debe superarlo. */
+    kilometraje: number | null;
 };
 
 type TipoDocumento = {
@@ -30,8 +32,9 @@ export type Catalogos = {
     // abierto, sin cerrar), sin importar el conductor que la inició. "Nueva
     // Ruta" la usa para avisar al elegir la unidad que ya está en ruta.
     unidades_en_ruta: Record<string, string>;
-    // Placa -> datos de su hoja ACTIVA sin tramos abiertos: "Nueva Ruta" los
-    // completa y bloquea al elegir esa unidad (el servidor aplica lo mismo).
+    // Placa -> su hoja ACTIVA sin tramos abiertos: "Nueva Ruta" sobre esa
+    // unidad sigue esa hoja (el servidor aplica lo mismo) con copiloto,
+    // precintos y carreta bloqueados.
     unidades_activas: Record<string, DatosHeredados>;
     carretas: string[];
     geocercas: string[];

@@ -4,6 +4,7 @@ namespace App\Pwa\Requests\Concerns;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Validator;
 
 /**
@@ -47,6 +48,24 @@ trait ValidaKilometraje
 
         if ((int) $kilometraje <= $anterior) {
             $validator->errors()->add('kilometraje', $this->mensajeKilometrajeNoMayor($anterior));
+        }
+    }
+
+    /**
+     * Revalida el kilometraje ya con la hoja bloqueada (`RutaController`): entre
+     * la validación del request y el guardado pudo registrarse otra parada de
+     * la misma hoja.
+     *
+     * @throws ValidationException
+     */
+    public function asegurarKilometrajeMayorQue(?int $anterior): void
+    {
+        $kilometraje = $this->validated('kilometraje');
+
+        if ($anterior !== null && is_numeric($kilometraje) && (int) $kilometraje <= $anterior) {
+            throw ValidationException::withMessages([
+                'kilometraje' => $this->mensajeKilometrajeNoMayor($anterior),
+            ]);
         }
     }
 

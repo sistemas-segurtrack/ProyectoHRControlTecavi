@@ -57,6 +57,7 @@ test('login manda unidades_activas con los datos de la hoja ACTIVA sin tramos ab
             'copiloto' => 'JOSE MOLINA',
             'precintos' => 'P-1',
             'carreta' => 'ATT888',
+            'kilometraje' => 150,
         ])
         ->assertJsonMissingPath('catalogos.unidades_en_ruta.TEI838');
 });

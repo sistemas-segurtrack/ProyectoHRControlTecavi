@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\Wialon\ActualizarContadorKilometrajeJob;
 use App\Models\HRControl\DetalleRuta;
 use App\Models\HRControl\Ruta;
+use App\Models\HRControl\TipoDocumento;
 use App\Models\WialonSTK\WialonConductor;
 use App\Models\WialonSTK\WialonUnidad;
 use App\Pwa\Controllers\Concerns\GuardaDocumentoRuta;
@@ -21,6 +22,7 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class RutaController extends Controller
 {
@@ -52,7 +54,9 @@ class RutaController extends Controller
 
     /**
      * "Nueva Ruta": crea la hoja de ruta + su primer orden (EN RUTA), con un
-     * documento adjunto opcional que puede finalizarla de inmediato.
+     * documento adjunto opcional que puede finalizarla de inmediato. Si la
+     * unidad ya tiene una hoja ACTIVA sin tramos abiertos, en vez de crear
+     * otra se sigue esa (ver `seguirHoja()`).
      */
     public function store(CrearRutaRequest $request): JsonResponse
     {
@@ -72,18 +76,9 @@ class RutaController extends Controller
         $tipo = $this->tipoDocumentoAdjunto($request);
         $finaliza = $this->documentoFinaliza($tipo);
 
-        // Si la unidad tiene una hoja ACTIVA sin tramos abiertos, la nueva
-        // hereda su copiloto, precintos y carreta (en la PWA esos campos se
-        // bloquean). Manda el servidor: el catálogo del celular pudo estar
-        // viejo si la hoja se armó sin señal.
-        $origen = Ruta::activaSinTramoAbiertoPorPlaca($datos['placa']);
-        if ($origen !== null) {
-            $datos = [
-                ...$datos,
-                'copiloto' => $origen->copiloto,
-                'precintos' => $origen->precintos,
-                'carreta' => $origen->carreta,
-            ];
+        $hoja = Ruta::activaSinTramoAbiertoPorPlaca($datos['placa']);
+        if ($hoja !== null) {
+            return $this->seguirHoja($request, $conductor, $hoja, $datos, $key, $tipo, $finaliza);
         }
 
         $crear = function () use ($conductor, $datos, $key, $request, $tipo, $finaliza): Ruta {
@@ -97,22 +92,7 @@ class RutaController extends Controller
                 'estado' => $finaliza ? Ruta::FINALIZADA : Ruta::ACTIVA,
             ]);
 
-            /** @var DetalleRuta $orden */
-            $orden = $ruta->detalles()->create([
-                'contacto_idcontacto' => null,
-                'geocerca' => $datos['geocerca'] ?? null,
-                'coordenada' => $datos['coordenada'] ?? null,
-                'kilometraje' => $datos['kilometraje'] ?? null,
-                'observacion' => $datos['observacion'] ?? null,
-                'orden' => 1,
-                'fhRegistro' => $datos['fhRegistro'] ?? now(),
-                'fhIndicado' => now(),
-                'estado' => $finaliza ? DetalleRuta::FINALIZADO : null,
-            ]);
-
-            if ($tipo !== null) {
-                $this->guardarDocumento($orden, $tipo, $request);
-            }
+            $this->registrarParada($ruta, $datos, $request, $tipo, $finaliza);
 
             PwaRuta::create([
                 'ruta_idruta' => $ruta->idruta,
@@ -148,7 +128,7 @@ class RutaController extends Controller
             }
         }
 
-        // Notificaciones por correo (no bloquean la respuesta: van a la cola).
+        // Notificaciones (no bloquean la respuesta: van a la cola).
         HojaRutaCreada::dispatch($ruta->idruta);
         if ($finaliza) {
             HojaRutaFinalizada::dispatch($ruta->idruta);
@@ -179,50 +159,129 @@ class RutaController extends Controller
         $finaliza = $this->documentoFinaliza($tipo);
 
         $numeroOrden = DB::transaction(function () use ($modelo, $datos, $request, $tipo, $finaliza): int {
-            // Bloquea la hoja hasta terminar: dos avances simultáneos de la misma
-            // hoja (el mismo conductor sincronizando desde dos celulares) se
-            // registran uno detrás del otro, sin repetir el número de orden y
-            // revalidando el kilometraje contra la parada que entró primero.
-            Ruta::query()->whereKey($modelo->getKey())->lockForUpdate()->first();
+            $this->bloquearHoja($modelo);
             $request->asegurarKilometrajeMayorQue($modelo->kilometrajeUltimaParada());
 
-            $siguienteOrden = (int) $modelo->detalles()->max('orden') + 1;
-
-            /** @var DetalleRuta $orden */
-            $orden = $modelo->detalles()->create([
-                'contacto_idcontacto' => $datos['contacto_idcontacto'] ?? null,
-                'geocerca' => $datos['geocerca'] ?? null,
-                'coordenada' => $datos['coordenada'] ?? null,
-                'kilometraje' => $datos['kilometraje'] ?? null,
-                'observacion' => $datos['observacion'] ?? null,
-                'orden' => $siguienteOrden,
-                'fhRegistro' => $datos['fhRegistro'] ?? now(),
-                'fhIndicado' => now(),
-                // Un documento con condicionaFin cierra la hoja: el orden nace FINALIZADO.
-                'estado' => $finaliza ? DetalleRuta::FINALIZADO : null,
-            ]);
-
-            if ($tipo !== null) {
-                $this->guardarDocumento($orden, $tipo, $request);
-            }
-
-            if ($finaliza) {
-                $modelo->update(['estado' => Ruta::FINALIZADA]);
-            }
-
-            return $siguienteOrden;
+            return $this->registrarParada($modelo, $datos, $request, $tipo, $finaliza);
         });
 
-        // Avisos (van a la cola): una parada par cierra un tramo; si además
-        // finaliza la hoja, solo sale el aviso final.
-        if ($finaliza) {
-            HojaRutaFinalizada::dispatch($ruta);
-        } elseif ($numeroOrden % 2 === 0) {
-            TramoRutaCerrado::dispatch($ruta);
-        }
+        $this->avisarParada($ruta, $numeroOrden, $finaliza);
         $this->empujarContadorSiCorresponde($modelo->placa, $datos['kilometraje'] ?? null);
 
         return $this->respuesta($ruta, 201);
+    }
+
+    /**
+     * "Nueva Ruta" sobre una unidad con una hoja ACTIVA sin tramos abiertos:
+     * no se crea otra hoja, el conductor la sigue. Registra la parada que abre
+     * el tramo siguiente (su kilometraje debe superar al de la última parada)
+     * y pasa a ser el piloto; copiloto, precintos y carreta quedan los de la
+     * hoja. El enlace de la PWA pasa a este conductor: la hoja deja de
+     * figurar "en curso" para el anterior.
+     *
+     * @param  array<string, mixed>  $datos
+     */
+    private function seguirHoja(
+        CrearRutaRequest $request,
+        WialonConductor $conductor,
+        Ruta $hoja,
+        array $datos,
+        ?string $key,
+        ?TipoDocumento $tipo,
+        bool $finaliza,
+    ): JsonResponse {
+        $numeroOrden = DB::transaction(function () use ($request, $conductor, $hoja, $datos, $key, $tipo, $finaliza): int {
+            $this->bloquearHoja($hoja);
+
+            // Entre la elección de la unidad y el bloqueo pudo abrirse un tramo
+            // o finalizarse la hoja.
+            if (Ruta::activaSinTramoAbiertoPorPlaca((string) $hoja->placa)?->idruta !== $hoja->idruta) {
+                throw ValidationException::withMessages([
+                    'placa' => "La hoja de ruta {$hoja->idruta} de esta unidad cambió mientras se registraba. Vuelve a intentarlo.",
+                ]);
+            }
+            $request->asegurarKilometrajeMayorQue($hoja->kilometrajeUltimaParada());
+
+            $numero = $this->registrarParada($hoja, $datos, $request, $tipo, $finaliza);
+
+            $hoja->update(['piloto' => $conductor->nombre]);
+            PwaRuta::query()->where('ruta_idruta', $hoja->idruta)->delete();
+            PwaRuta::create([
+                'ruta_idruta' => $hoja->idruta,
+                'wialon_conductor_id' => $conductor->getKey(),
+                'idempotency_key' => $key,
+            ]);
+
+            return $numero;
+        });
+
+        $this->avisarParada($hoja->idruta, $numeroOrden, $finaliza);
+        $this->empujarContadorSiCorresponde($hoja->placa, $datos['kilometraje'] ?? null);
+
+        return $this->respuesta($hoja->idruta, 201);
+    }
+
+    /**
+     * Bloquea la hoja hasta terminar la transacción: dos paradas simultáneas
+     * de la misma hoja (dos celulares sincronizando a la vez) se registran una
+     * detrás de la otra, sin repetir el número de orden.
+     */
+    private function bloquearHoja(Ruta $hoja): void
+    {
+        Ruta::query()->whereKey($hoja->getKey())->lockForUpdate()->first();
+    }
+
+    /**
+     * Registra la siguiente parada de la hoja (con su documento, si lo trae) y
+     * devuelve su número de orden. Un documento con condicionaFin la finaliza.
+     *
+     * @param  array<string, mixed>  $datos
+     */
+    private function registrarParada(
+        Ruta $hoja,
+        array $datos,
+        CrearRutaRequest|RegistrarOrdenRequest $request,
+        ?TipoDocumento $tipo,
+        bool $finaliza,
+    ): int {
+        $siguienteOrden = (int) $hoja->detalles()->max('orden') + 1;
+
+        /** @var DetalleRuta $parada */
+        $parada = $hoja->detalles()->create([
+            'contacto_idcontacto' => $datos['contacto_idcontacto'] ?? null,
+            'geocerca' => $datos['geocerca'] ?? null,
+            'coordenada' => $datos['coordenada'] ?? null,
+            'kilometraje' => $datos['kilometraje'] ?? null,
+            'observacion' => $datos['observacion'] ?? null,
+            'orden' => $siguienteOrden,
+            'fhRegistro' => $datos['fhRegistro'] ?? now(),
+            'fhIndicado' => now(),
+            // Un documento con condicionaFin cierra la hoja: la parada nace FINALIZADA.
+            'estado' => $finaliza ? DetalleRuta::FINALIZADO : null,
+        ]);
+
+        if ($tipo !== null) {
+            $this->guardarDocumento($parada, $tipo, $request);
+        }
+
+        if ($finaliza) {
+            $hoja->update(['estado' => Ruta::FINALIZADA]);
+        }
+
+        return $siguienteOrden;
+    }
+
+    /**
+     * Avisos (van a la cola): una parada par cierra un tramo; si además
+     * finaliza la hoja, solo sale el aviso final.
+     */
+    private function avisarParada(string $idruta, int $numeroOrden, bool $finaliza): void
+    {
+        if ($finaliza) {
+            HojaRutaFinalizada::dispatch($idruta);
+        } elseif ($numeroOrden % 2 === 0) {
+            TramoRutaCerrado::dispatch($idruta);
+        }
     }
 
     /**

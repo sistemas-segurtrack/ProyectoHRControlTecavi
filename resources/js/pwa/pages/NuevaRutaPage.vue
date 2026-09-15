@@ -36,8 +36,14 @@ const cargando = ref(false);
 const error = ref('');
 const idempotencyKey = uuid();
 
-// Parada 1: no hay parada anterior con qué comparar (solo entero y tope).
-const errorKm = computed(() => errorKilometraje(form.value.kilometraje, null));
+// Hoja nueva: sin parada anterior (solo entero y tope). Si se sigue la hoja
+// activa de la unidad (`heredada`), debe superar al de su última parada.
+const errorKm = computed(() =>
+    errorKilometraje(
+        form.value.kilometraje,
+        heredada.value?.kilometraje ?? null,
+    ),
+);
 
 // Al elegir la placa se detecta al instante (con el catálogo ya cacheado,
 // sin esperar al servidor) si esa unidad ya está EN RUTA de verdad (un
@@ -50,9 +56,9 @@ const idRutaEnRuta = computed(
     () => state.catalogos.unidades_en_ruta?.[form.value.placa.trim()] ?? null,
 );
 
-// Unidad con una hoja ACTIVA sin tramos abiertos: la hoja nueva hereda su
-// copiloto, precintos y carreta, y esos campos quedan bloqueados (el
-// servidor aplica lo mismo al crearla).
+// Unidad con una hoja ACTIVA sin tramos abiertos: no se crea otra hoja, se
+// sigue esa (el servidor registra la parada en ella). Copiloto, precintos y
+// carreta son los de esa hoja y quedan bloqueados.
 const heredada = computed(
     () => state.catalogos.unidades_activas?.[form.value.placa.trim()] ?? null,
 );
@@ -167,8 +173,8 @@ async function iniciar(): Promise<void> {
                     v-else-if="heredada"
                     class="text-xs text-gray-500 dark:text-gray-400"
                 >
-                    Copiloto, precintos y carreta tomados de la hoja activa
-                    {{ heredada.idruta }} de esta unidad.
+                    Se seguirá la hoja activa {{ heredada.idruta }} de esta
+                    unidad, con su copiloto, precintos y carreta.
                 </p>
             </div>
             <CampoCombo
@@ -251,7 +257,13 @@ async function iniciar(): Promise<void> {
                     :disabled="cargando || !!errorKm || !!idRutaEnRuta"
                     class="h-14 w-full rounded-xl bg-[#b51927] text-lg font-bold text-white transition active:scale-[.98] disabled:opacity-60"
                 >
-                    {{ cargando ? 'Iniciando…' : 'Iniciar ruta' }}
+                    {{
+                        cargando
+                            ? 'Iniciando…'
+                            : heredada
+                              ? 'Continuar hoja'
+                              : 'Iniciar ruta'
+                    }}
                 </button>
             </div>
         </form>
