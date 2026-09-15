@@ -223,10 +223,11 @@ class ConsultaHojasRuta
             ->selectSub($ultimo('kilometraje'), 'km_final')
             ->selectSub($ultimo('fhRegistro'), 'fh_final')
             ->selectSub($ultimo('fhIndicado'), 'fh_indicado_final')
-            // Estado de la última parada registrada (no el de `ruta.estado`,
-            // que es el de toda la hoja): distingue, en `transformarRuta()`,
-            // una hoja ACTIVA que ya cerró todos sus tramos de una que
-            // todavía tiene uno abierto (en curso).
+            // Orden y estado de la última parada registrada (no el de
+            // `ruta.estado`, que es el de toda la hoja): distingue, en
+            // `transformarRuta()`, una hoja ACTIVA que ya cerró todos sus
+            // tramos de una que todavía tiene uno abierto (en curso).
+            ->selectSub($ultimo('orden'), 'ultimo_orden')
             ->selectSub($ultimo('estado'), 'ultimo_estado')
             ->when($filtros['conductor'] !== '', fn ($q) => $q->where('ruta.piloto', 'like', "%{$filtros['conductor']}%"))
             ->when($filtros['placa'] !== '', fn ($q) => $q->where('ruta.placa', 'like', "%{$filtros['placa']}%"))
@@ -339,9 +340,20 @@ class ConsultaHojasRuta
         // tramos (esperando el documento que la finalice) como si el último
         // sigue abierto (el conductor en curso, todavía sin registrar su
         // cierre) — dos situaciones distintas que el encabezado del listado
-        // debe distinguir. Se detecta mirando el estado de la ÚLTIMA parada
-        // registrada: si sigue EN_RUTA, la hoja está "en curso" de verdad.
+        // debe distinguir.
+        //
+        // No alcanza con mirar el estado crudo de la última parada: el
+        // observer (`DetalleRutaObserver`) solo lo pasa a FINALIZADO cuando
+        // se registra la parada SIGUIENTE, así que la verdadera última
+        // parada de una hoja casi siempre queda en EN_RUTA aunque sea PAR
+        // (haya cerrado su propio tramo) — el mismo caso que ya se corrigió
+        // en el PWA (`ContinuarPage.vue::estadoAvance()`). Por eso también
+        // se exige que sea IMPAR: solo una parada impar (abre un tramo,
+        // todavía sin su cierre) deja la hoja genuinamente "en curso".
+        $ultimoOrden = $row['ultimo_orden'] ?? null;
         $enCurso = $estado === Ruta::ACTIVA
+            && $ultimoOrden !== null
+            && (int) $ultimoOrden % 2 === 1
             && (string) ($row['ultimo_estado'] ?? '') === DetalleRuta::EN_RUTA;
 
         return [

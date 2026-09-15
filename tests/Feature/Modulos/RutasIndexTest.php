@@ -291,6 +291,36 @@ test('una hoja ACTIVA con la última parada EN RUTA se muestra como EN RUTA, no 
         );
 });
 
+test('una hoja con su último tramo cerrado (parada PAR) se muestra ACTIVA, no EN RUTA', function () {
+    // Reproduce el caso real: el observer solo pasa una parada a FINALIZADO
+    // cuando se registra la SIGUIENTE -- si la parada 2 (par, cierra el
+    // tramo 1) es la última y todavía no existe una parada 3, su estado
+    // crudo sigue en EN_RUTA aunque ya haya cerrado su propio tramo. No
+    // debe contar como "en curso": es el mismo caso que ya se corrigió en
+    // el PWA (ContinuarPage.vue) para el badge de cada parada.
+    $contacto = Contacto::factory()->create();
+    $activa = Ruta::factory()->create(['idruta' => 'T000504', 'estado' => Ruta::ACTIVA]);
+
+    DetalleRuta::factory()->for($contacto, 'contacto')->create([
+        'ruta_idruta' => $activa->idruta, 'orden' => 1,
+    ]);
+    DetalleRuta::factory()->for($contacto, 'contacto')->create([
+        'ruta_idruta' => $activa->idruta, 'orden' => 2,
+        // Sin fijar 'estado': nace EN_RUTA por DetalleRutaObserver, igual
+        // que en producción -- nada la pasa a FINALIZADO porque no hay
+        // una parada 3.
+    ]);
+
+    $this->actingAs(crearAdmin())
+        ->get(route('modulos.rutas.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('rutas', 1)
+            ->where('rutas.0.hoja', 'T000504')
+            ->where('rutas.0.estado', Ruta::ACTIVA)
+            ->where('rutas.0.estado_label', 'ACTIVA')
+        );
+});
+
 test('el filtro Estado busca por ruta.estado', function () {
     $contacto = Contacto::factory()->create();
     $activa = Ruta::factory()->create(['estado' => Ruta::ACTIVA]);
