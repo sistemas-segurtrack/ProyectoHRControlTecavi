@@ -19,9 +19,9 @@ export type TipoDocumento = {
 
 export type Catalogos = {
     placas: string[];
-    // Placa -> idruta de la hoja con un tramo abierto (EN RUTA) ahora mismo,
-    // sin importar el conductor que la inició. "Nueva Ruta" la usa para
-    // avisar al elegir la unidad que ya está en curso.
+    // Placa -> idruta de la hoja EN RUTA de verdad ahora mismo (tramo
+    // abierto, sin cerrar), sin importar el conductor que la inició. "Nueva
+    // Ruta" la usa para avisar al elegir la unidad que ya está en ruta.
     unidades_en_ruta: Record<string, string>;
     carretas: string[];
     geocercas: string[];

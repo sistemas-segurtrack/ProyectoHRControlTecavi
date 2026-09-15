@@ -24,16 +24,15 @@ trait ResuelveCatalogos
             'placas' => WialonUnidad::query()
                 ->whereNotNull('placa')->where('placa', '!=', '')
                 ->orderBy('placa')->pluck('placa')->values(),
-            // Unidades con un tramo abierto (EN RUTA) ahora mismo, sin importar
-            // qué conductor lo inició: "Nueva Ruta" la usa para avisar al
-            // instante, al elegir la placa, que esa unidad ya está en curso
-            // (hay que continuarla/finalizarla) en vez de dejar crear una hoja
-            // nueva desde cero encima.
-            'unidades_en_ruta' => DetalleRuta::query()
-                ->join('ruta', 'ruta.idruta', '=', 'detalleruta.ruta_idruta')
-                ->where('detalleruta.estado', DetalleRuta::EN_RUTA)
-                ->whereNotNull('ruta.placa')
-                ->pluck('ruta.idruta', 'ruta.placa'),
+            // Unidades EN RUTA de verdad ahora mismo (tramo abierto, sin
+            // cerrar), sin importar qué conductor lo inició: "Nueva Ruta" la
+            // usa para avisar al instante, al elegir la placa, que esa
+            // unidad ya está en ruta (hay que continuarla/finalizarla) en
+            // vez de dejar crear una hoja nueva desde cero encima. Una
+            // unidad con una hoja ACTIVA pero ya sin ningún tramo abierto
+            // (esperando el documento que la finalice) SÍ se puede elegir
+            // — ver `Ruta::unidadesEnRuta()`.
+            'unidades_en_ruta' => Ruta::unidadesEnRuta(),
             'carretas' => WialonCarreta::query()->orderBy('nombre')->pluck('nombre')->unique()->values(),
             'geocercas' => WialonGeocerca::query()->orderBy('nombre')->pluck('nombre')->unique()->values(),
             'copilotos' => WialonConductor::query()

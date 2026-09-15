@@ -135,8 +135,24 @@ test('no deja crear una ruta sobre una unidad que ya tiene un tramo en curso con
     $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '500'])
         ->assertStatus(422)
         ->assertJsonValidationErrors([
-            'placa' => "La unidad AAA-111 ya tiene una hoja de ruta en curso ({$idruta}). Continúala o finalízala antes de iniciar una nueva.",
+            'placa' => "La unidad AAA-111 ya tiene una hoja de ruta en ruta ({$idruta}). Continúala o finalízala antes de iniciar una nueva.",
         ]);
+});
+
+test('la unidad SÍ se puede elegir si su hoja quedó ACTIVA sin ningún tramo abierto', function () {
+    // Parada 1 (impar, abre tramo) -> parada 2 (par, la cierra). Sin un
+    // documento que finalice la hoja, `ruta.estado` sigue ACTIVA, pero
+    // ningún tramo sigue abierto -- la unidad está libre para una hoja
+    // nueva (a diferencia de si la parada 2 no existiera todavía).
+    Sanctum::actingAs(conductorPwa('11111111'), ['*']);
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100'])
+        ->assertCreated()->json('data.idruta');
+    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['geocerca' => 'DESTINO', 'kilometraje' => '150'])
+        ->assertCreated();
+
+    Sanctum::actingAs(conductorPwa('22222222'), ['*']);
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '500'])
+        ->assertCreated();
 });
 
 test('la unidad vuelve a estar libre una vez que su hoja de ruta finaliza', function () {

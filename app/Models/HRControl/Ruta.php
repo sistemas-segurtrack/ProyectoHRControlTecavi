@@ -2,10 +2,13 @@
 
 namespace App\Models\HRControl;
 
+use Closure;
 use Database\Factories\HRControl\RutaFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 
 /**
  * @property string $idruta
@@ -78,15 +81,54 @@ class Ruta extends Model
     }
 
     /**
-     * ID de la hoja de ruta con un tramo abierto (EN RUTA) para esta placa
-     * ahora mismo, sin importar qué conductor la inició, o `null` si la
-     * unidad está libre para empezar una hoja desde cero.
+     * ID de la hoja de ruta EN RUTA de verdad (tramo abierto, sin cerrar)
+     * para esta placa ahora mismo, sin importar qué conductor la inició, o
+     * `null` si la unidad está libre para empezar una hoja desde cero —
+     * aunque tenga otra hoja ACTIVA con todos sus tramos ya cerrados,
+     * esperando el documento que la finalice (ver `conTramoAbiertoSinCerrar()`).
      */
     public static function idEnRutaPorPlaca(string $placa): ?string
     {
         return static::query()
             ->where('placa', $placa)
-            ->whereHas('detalles', fn ($q) => $q->where('estado', DetalleRuta::EN_RUTA))
+            ->whereHas('detalles', self::conTramoAbiertoSinCerrar())
             ->value('idruta');
+    }
+
+    /**
+     * Placa => idruta de cada hoja EN RUTA de verdad ahora mismo (mismo
+     * criterio que `idEnRutaPorPlaca()`) — el catálogo que la PWA cachea
+     * para avisar al elegir la unidad en "Nueva Ruta" (`ResuelveCatalogos`),
+     * antes de tocar el servidor.
+     *
+     * @return Collection<string, string>
+     */
+    public static function unidadesEnRuta(): Collection
+    {
+        return static::query()
+            ->whereNotNull('placa')
+            ->whereHas('detalles', self::conTramoAbiertoSinCerrar())
+            ->pluck('idruta', 'placa');
+    }
+
+    /**
+     * "En ruta de verdad" = la parada de MAYOR orden de la hoja (la última
+     * registrada) sigue `EN_RUTA` a nivel crudo Y además es IMPAR (abre un
+     * tramo). Una parada PAR con ese mismo estado crudo solo sigue así
+     * porque nadie registró todavía la parada siguiente — el observer
+     * (`DetalleRutaObserver`) recién la pasa a `FINALIZADO` en ese momento —
+     * pero ya cerró su propio tramo, así que NO cuenta como "en curso". Es
+     * el mismo criterio que ya corrige el encabezado del listado admin
+     * (`ConsultaHojasRuta::transformarRuta()`) y el badge de cada parada en
+     * el PWA (`ContinuarPage.vue::estadoAvance()`).
+     *
+     * @return Closure(Builder<DetalleRuta>): Builder<DetalleRuta>
+     */
+    private static function conTramoAbiertoSinCerrar(): Closure
+    {
+        return fn (Builder $q): Builder => $q
+            ->where('estado', DetalleRuta::EN_RUTA)
+            ->whereRaw('detalleruta.orden % 2 = 1')
+            ->whereRaw('detalleruta.orden = (select max(d2.orden) from detalleruta d2 where d2.ruta_idruta = detalleruta.ruta_idruta)');
     }
 }

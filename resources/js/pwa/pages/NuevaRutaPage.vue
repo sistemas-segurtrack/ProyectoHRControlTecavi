@@ -40,17 +40,19 @@ const idempotencyKey = uuid();
 const errorKm = computed(() => errorKilometraje(form.value.kilometraje, null));
 
 // Al elegir la placa se detecta al instante (con el catálogo ya cacheado,
-// sin esperar al servidor) si esa unidad ya tiene un tramo abierto con
-// OTRO conductor: no se puede crear una hoja desde cero encima, hay que
-// continuarla o finalizarla primero. El servidor valida lo mismo por si
-// las dudas (`CrearRutaRequest`).
-const idRutaEnCurso = computed(
+// sin esperar al servidor) si esa unidad ya está EN RUTA de verdad (un
+// tramo abierto, sin cerrar) con OTRO conductor: no se puede crear una
+// hoja desde cero encima, hay que continuarla o finalizarla primero. Una
+// unidad con una hoja ACTIVA pero ya sin tramos abiertos (esperando el
+// documento que la finalice) sí se puede elegir. El servidor valida lo
+// mismo por si las dudas (`CrearRutaRequest`).
+const idRutaEnRuta = computed(
     () => state.catalogos.unidades_en_ruta?.[form.value.placa.trim()] ?? null,
 );
 
 async function iniciar(): Promise<void> {
-    if (idRutaEnCurso.value) {
-        error.value = `Esta unidad ya tiene una hoja de ruta en curso (${idRutaEnCurso.value}). Continúala o finalízala antes de iniciar una nueva.`;
+    if (idRutaEnRuta.value) {
+        error.value = `Esta unidad ya tiene una hoja de ruta en ruta (${idRutaEnRuta.value}). Continúala o finalízala antes de iniciar una nueva.`;
         return;
     }
     const faltante = faltanteAntesDeEnviar({
@@ -134,11 +136,11 @@ async function iniciar(): Promise<void> {
                     required
                 />
                 <p
-                    v-if="idRutaEnCurso"
+                    v-if="idRutaEnRuta"
                     class="text-xs text-rose-600 dark:text-rose-400"
                 >
-                    Esta unidad ya tiene una hoja de ruta en curso ({{
-                        idRutaEnCurso
+                    Esta unidad ya tiene una hoja de ruta en ruta ({{
+                        idRutaEnRuta
                     }}). Continúala o finalízala antes de iniciar una nueva.
                 </p>
             </div>
@@ -216,7 +218,7 @@ async function iniciar(): Promise<void> {
                 </p>
                 <button
                     type="submit"
-                    :disabled="cargando || !!errorKm || !!idRutaEnCurso"
+                    :disabled="cargando || !!errorKm || !!idRutaEnRuta"
                     class="h-14 w-full rounded-xl bg-[#b51927] text-lg font-bold text-white transition active:scale-[.98] disabled:opacity-60"
                 >
                     {{ cargando ? 'Iniciando…' : 'Iniciar ruta' }}
