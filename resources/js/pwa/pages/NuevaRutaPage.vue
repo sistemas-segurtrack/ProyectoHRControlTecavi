@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ChevronLeft } from '@lucide/vue';
-import { computed, ref, useTemplateRef } from 'vue';
+import { computed, ref, useTemplateRef, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import AdjuntarDocumento from '../components/AdjuntarDocumento.vue';
 import CampoCombo from '../components/CampoCombo.vue';
@@ -49,6 +49,26 @@ const errorKm = computed(() => errorKilometraje(form.value.kilometraje, null));
 const idRutaEnRuta = computed(
     () => state.catalogos.unidades_en_ruta?.[form.value.placa.trim()] ?? null,
 );
+
+// Unidad con una hoja ACTIVA sin tramos abiertos: la hoja nueva hereda su
+// copiloto, precintos y carreta, y esos campos quedan bloqueados (el
+// servidor aplica lo mismo al crearla).
+const heredada = computed(
+    () => state.catalogos.unidades_activas?.[form.value.placa.trim()] ?? null,
+);
+
+watch(heredada, (datos, anteriores) => {
+    if (datos) {
+        form.value.copiloto = datos.copiloto ?? '';
+        form.value.precintos = datos.precintos ?? '';
+        form.value.carreta = datos.carreta ?? '';
+    } else if (anteriores) {
+        // Se cambió a una unidad sin hoja activa: se sueltan los datos heredados.
+        form.value.copiloto = '';
+        form.value.precintos = '';
+        form.value.carreta = '';
+    }
+});
 
 async function iniciar(): Promise<void> {
     if (idRutaEnRuta.value) {
@@ -143,23 +163,33 @@ async function iniciar(): Promise<void> {
                         idRutaEnRuta
                     }}). Continúala o finalízala antes de iniciar una nueva.
                 </p>
+                <p
+                    v-else-if="heredada"
+                    class="text-xs text-gray-500 dark:text-gray-400"
+                >
+                    Copiloto, precintos y carreta tomados de la hoja activa
+                    {{ heredada.idruta }} de esta unidad.
+                </p>
             </div>
             <CampoCombo
                 v-model="form.copiloto"
                 label="Copiloto"
                 :options="state.catalogos.copilotos"
                 placeholder="Opcional"
+                :disabled="!!heredada"
             />
             <CampoTexto
                 v-model="form.precintos"
                 label="Precintos"
                 placeholder="Número de precintos"
+                :disabled="!!heredada"
             />
             <CampoCombo
                 v-model="form.carreta"
                 label="Carreta"
                 :options="state.catalogos.carretas"
                 placeholder="Opcional"
+                :disabled="!!heredada"
             />
 
             <CampoCombo

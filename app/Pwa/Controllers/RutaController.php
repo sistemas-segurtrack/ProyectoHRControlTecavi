@@ -72,6 +72,20 @@ class RutaController extends Controller
         $tipo = $this->tipoDocumentoAdjunto($request);
         $finaliza = $this->documentoFinaliza($tipo);
 
+        // Si la unidad tiene una hoja ACTIVA sin tramos abiertos, la nueva
+        // hereda su copiloto, precintos y carreta (en la PWA esos campos se
+        // bloquean). Manda el servidor: el catálogo del celular pudo estar
+        // viejo si la hoja se armó sin señal.
+        $origen = Ruta::activaSinTramoAbiertoPorPlaca($datos['placa']);
+        if ($origen !== null) {
+            $datos = [
+                ...$datos,
+                'copiloto' => $origen->copiloto,
+                'precintos' => $origen->precintos,
+                'carreta' => $origen->carreta,
+            ];
+        }
+
         $crear = function () use ($conductor, $datos, $key, $request, $tipo, $finaliza): Ruta {
             $ruta = Ruta::create([
                 'idruta' => Ruta::siguienteCodigo(),

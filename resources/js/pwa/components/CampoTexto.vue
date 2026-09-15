@@ -6,6 +6,7 @@ withDefaults(
         inputmode?: 'text' | 'numeric' | 'decimal' | 'tel';
         placeholder?: string;
         required?: boolean;
+        disabled?: boolean;
     }>(),
     { type: 'text' },
 );
@@ -24,7 +25,8 @@ const model = defineModel<string>({ required: true });
             :inputmode="inputmode"
             :placeholder="placeholder"
             :required="required"
-            class="h-12 w-full rounded-xl border border-gray-300 bg-white px-3.5 text-base text-gray-900 focus:border-[#b51927] focus:ring-2 focus:ring-[#b51927]/25 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+            :disabled="disabled"
+            class="h-12 w-full rounded-xl border border-gray-300 bg-white px-3.5 text-base text-gray-900 focus:border-[#b51927] focus:ring-2 focus:ring-[#b51927]/25 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-100 disabled:opacity-70 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:disabled:bg-gray-900"
         />
     </label>
 </template>

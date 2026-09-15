@@ -11,6 +11,13 @@ export type Conductor = {
     descripcion: string | null;
 };
 
+type DatosHeredados = {
+    idruta: string;
+    copiloto: string | null;
+    precintos: string | null;
+    carreta: string | null;
+};
+
 type TipoDocumento = {
     id: number;
     nombre: string | null;
@@ -23,6 +30,9 @@ export type Catalogos = {
     // abierto, sin cerrar), sin importar el conductor que la inició. "Nueva
     // Ruta" la usa para avisar al elegir la unidad que ya está en ruta.
     unidades_en_ruta: Record<string, string>;
+    // Placa -> datos de su hoja ACTIVA sin tramos abiertos: "Nueva Ruta" los
+    // completa y bloquea al elegir esa unidad (el servidor aplica lo mismo).
+    unidades_activas: Record<string, DatosHeredados>;
     carretas: string[];
     geocercas: string[];
     copilotos: string[];
@@ -90,6 +100,7 @@ const LS = 'pwa_conductor';
 const CATALOGOS_VACIOS: Catalogos = {
     placas: [],
     unidades_en_ruta: {},
+    unidades_activas: {},
     carretas: [],
     geocercas: [],
     copilotos: [],

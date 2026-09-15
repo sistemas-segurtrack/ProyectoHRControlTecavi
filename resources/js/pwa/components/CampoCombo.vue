@@ -18,6 +18,7 @@ defineProps<{
     options: string[];
     placeholder?: string;
     required?: boolean;
+    disabled?: boolean;
 }>();
 
 const model = defineModel<string>({ required: true });
@@ -32,16 +33,22 @@ const model = defineModel<string>({ required: true });
         <ComboboxRoot
             v-model="model"
             :required="required"
+            :disabled="disabled"
             open-on-click
             open-on-focus
             class="relative"
         >
             <ComboboxAnchor
-                class="flex h-12 w-full items-center gap-2 rounded-xl border border-gray-300 bg-white px-3.5 focus-within:border-[#b51927] focus-within:ring-2 focus-within:ring-[#b51927]/25 dark:border-gray-600 dark:bg-gray-800"
+                class="flex h-12 w-full items-center gap-2 rounded-xl border border-gray-300 px-3.5 focus-within:border-[#b51927] focus-within:ring-2 focus-within:ring-[#b51927]/25 dark:border-gray-600"
+                :class="
+                    disabled
+                        ? 'cursor-not-allowed bg-gray-100 opacity-70 dark:bg-gray-900'
+                        : 'bg-white dark:bg-gray-800'
+                "
             >
                 <ComboboxInput
                     :placeholder="placeholder"
-                    class="h-full w-full bg-transparent text-base text-gray-900 placeholder:text-gray-400 focus:outline-none dark:text-gray-100"
+                    class="h-full w-full bg-transparent text-base text-gray-900 placeholder:text-gray-400 focus:outline-none disabled:cursor-not-allowed dark:text-gray-100"
                 />
                 <ComboboxTrigger class="shrink-0 text-gray-400">
                     <ChevronDown class="size-4" />

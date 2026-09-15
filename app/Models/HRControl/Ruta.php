@@ -124,6 +124,58 @@ class Ruta extends Model
     }
 
     /**
+     * Hoja ACTIVA más reciente de esta placa que ya no tiene ningún tramo
+     * abierto (todas sus paradas cerradas, esperando el documento que la
+     * finalice), o `null`. Una hoja nueva sobre esa unidad hereda su
+     * copiloto, precintos y carreta.
+     */
+    public static function activaSinTramoAbiertoPorPlaca(string $placa): ?self
+    {
+        return self::activasSinTramoAbierto()->where('placa', $placa)->first();
+    }
+
+    /**
+     * Placa => datos que hereda una hoja nueva de esa unidad (ver
+     * `activaSinTramoAbiertoPorPlaca()`) — el catálogo que la PWA cachea para
+     * completarlos y bloquearlos al instante en "Nueva Ruta", aun sin señal.
+     *
+     * @return array<string, array{idruta: string, copiloto: ?string, precintos: ?string, carreta: ?string}>
+     */
+    public static function datosHeredablesPorPlaca(): array
+    {
+        $datos = [];
+
+        $rutas = self::activasSinTramoAbierto()
+            ->whereNotNull('placa')
+            ->get(['idruta', 'placa', 'copiloto', 'precintos', 'carreta']);
+
+        foreach ($rutas as $ruta) {
+            // Vienen de la más reciente a la más antigua: queda la primera por placa.
+            $datos[(string) $ruta->placa] ??= [
+                'idruta' => $ruta->idruta,
+                'copiloto' => $ruta->copiloto,
+                'precintos' => $ruta->precintos,
+                'carreta' => $ruta->carreta,
+            ];
+        }
+
+        return $datos;
+    }
+
+    /**
+     * @return Builder<static>
+     */
+    private static function activasSinTramoAbierto(): Builder
+    {
+        return static::query()
+            ->where('estado', self::ACTIVA)
+            ->whereHas('detalles')
+            ->whereDoesntHave('detalles', self::conTramoAbiertoSinCerrar())
+            ->orderByRaw('LENGTH(idruta) DESC')
+            ->orderByDesc('idruta');
+    }
+
+    /**
      * "En ruta de verdad" = la parada de MAYOR orden de la hoja (la última
      * registrada) sigue `EN_RUTA` a nivel crudo Y además es IMPAR (abre un
      * tramo). Una parada PAR con ese mismo estado crudo solo sigue así

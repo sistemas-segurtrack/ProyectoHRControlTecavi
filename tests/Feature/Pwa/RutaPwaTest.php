@@ -208,6 +208,45 @@ test('un avance que se cruza con otro de la misma hoja se revalida con el kilome
         ->toBe([1, 2]);
 });
 
+test('una hoja nueva hereda copiloto, precintos y carreta de la hoja ACTIVA sin tramos abiertos de esa unidad', function () {
+    Sanctum::actingAs(conductorPwa('11111111'), ['*']);
+    $origen = $this->postJson('/api/pwa/rutas', [
+        'placa' => 'AAA-111', 'copiloto' => 'COPILOTO ORIGEN', 'precintos' => 'P-123', 'carreta' => 'CAR-9',
+        'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100',
+    ])->json('data.idruta');
+    $this->postJson("/api/pwa/rutas/{$origen}/ordenes", ['geocerca' => 'DESTINO', 'kilometraje' => '150'])
+        ->assertCreated();
+
+    // Aunque el celular mande otros valores (catálogo viejo), manda la hoja activa.
+    Sanctum::actingAs(conductorPwa('22222222'), ['*']);
+    $this->postJson('/api/pwa/rutas', [
+        'placa' => 'AAA-111', 'copiloto' => 'OTRO', 'precintos' => 'OTRO', 'carreta' => 'OTRA',
+        'geocerca' => 'PLANTA LIMA', 'kilometraje' => '500',
+    ])
+        ->assertCreated()
+        ->assertJsonPath('data.copiloto', 'COPILOTO ORIGEN')
+        ->assertJsonPath('data.precintos', 'P-123')
+        ->assertJsonPath('data.carreta', 'CAR-9');
+});
+
+test('una unidad con su hoja ya finalizada no hereda nada', function () {
+    $finalizada = Ruta::factory()->create([
+        'placa' => 'AAA-111', 'estado' => Ruta::FINALIZADA,
+        'copiloto' => 'VIEJO', 'precintos' => 'VIEJO', 'carreta' => 'VIEJA',
+    ]);
+    DetalleRuta::factory()->create(['ruta_idruta' => $finalizada->idruta, 'orden' => 1, 'estado' => DetalleRuta::FINALIZADO]);
+
+    Sanctum::actingAs(conductorPwa(), ['*']);
+    $this->postJson('/api/pwa/rutas', [
+        'placa' => 'AAA-111', 'copiloto' => 'NUEVO', 'precintos' => 'P-9', 'carreta' => 'CAR-1',
+        'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100',
+    ])
+        ->assertCreated()
+        ->assertJsonPath('data.copiloto', 'NUEVO')
+        ->assertJsonPath('data.precintos', 'P-9')
+        ->assertJsonPath('data.carreta', 'CAR-1');
+});
+
 test('la unidad vuelve a estar libre una vez que su hoja de ruta finaliza', function () {
     Storage::fake('public');
     $tipo = TipoDocumento::create(['nombre' => 'GUIA', 'condicionaFin' => '1']);

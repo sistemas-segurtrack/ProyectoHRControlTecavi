@@ -35,7 +35,30 @@ test('login manda unidades_en_ruta con las placas que tienen un tramo abierto', 
 
     $this->postJson('/api/pwa/login', ['codigo' => '9A000042', 'password' => '123456'])
         ->assertOk()
-        ->assertJsonPath('catalogos.unidades_en_ruta.TEI838', $idruta);
+        ->assertJsonPath('catalogos.unidades_en_ruta.TEI838', $idruta)
+        // En ruta (tramo abierto) no hereda: la unidad está bloqueada.
+        ->assertJsonMissingPath('catalogos.unidades_activas.TEI838');
+});
+
+test('login manda unidades_activas con los datos de la hoja ACTIVA sin tramos abiertos de cada unidad', function () {
+    conductorPwa('9A000042', '123456');
+    Sanctum::actingAs(conductorPwa('9A000099', 'x'), ['*']);
+    $idruta = $this->postJson('/api/pwa/rutas', [
+        'placa' => 'TEI838', 'copiloto' => 'JOSE MOLINA', 'precintos' => 'P-1', 'carreta' => 'ATT888',
+        'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100',
+    ])->assertCreated()->json('data.idruta');
+    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['geocerca' => 'DESTINO', 'kilometraje' => '150'])
+        ->assertCreated();
+
+    $this->postJson('/api/pwa/login', ['codigo' => '9A000042', 'password' => '123456'])
+        ->assertOk()
+        ->assertJsonPath('catalogos.unidades_activas.TEI838', [
+            'idruta' => $idruta,
+            'copiloto' => 'JOSE MOLINA',
+            'precintos' => 'P-1',
+            'carreta' => 'ATT888',
+        ])
+        ->assertJsonMissingPath('catalogos.unidades_en_ruta.TEI838');
 });
 
 test('login con contraseña incorrecta devuelve 422', function () {

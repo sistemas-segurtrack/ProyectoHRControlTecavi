@@ -33,6 +33,10 @@ trait ResuelveCatalogos
             // (esperando el documento que la finalice) SÍ se puede elegir
             // — ver `Ruta::unidadesEnRuta()`.
             'unidades_en_ruta' => Ruta::unidadesEnRuta(),
+            // Unidades con una hoja ACTIVA sin tramos abiertos: "Nueva Ruta"
+            // completa y bloquea copiloto, precintos y carreta con los de esa
+            // hoja — ver `Ruta::datosHeredablesPorPlaca()`.
+            'unidades_activas' => Ruta::datosHeredablesPorPlaca(),
             'carretas' => WialonCarreta::query()->orderBy('nombre')->pluck('nombre')->unique()->values(),
             'geocercas' => WialonGeocerca::query()->orderBy('nombre')->pluck('nombre')->unique()->values(),
             'copilotos' => WialonConductor::query()
