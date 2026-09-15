@@ -344,8 +344,10 @@ test('la fila expone la comparación conductor/sistema y los documentos para el 
         'ruta_idruta' => $ruta->idruta,
         'orden' => 1,
         'geocerca' => 'PLANTA A',
-        'fhIndicado' => '2026-01-01 08:00:00',
-        'fhRegistro' => '2026-01-01 08:20:00',
+        // Igual que guarda la PWA: `fhRegistro` = la hora que escribe el
+        // conductor, `fhIndicado` = cuándo la recibió el servidor.
+        'fhRegistro' => '2026-01-01 08:00:00',
+        'fhIndicado' => '2026-01-01 08:20:00',
         'observacion' => 'Salida con retraso por tráfico',
     ]);
 
@@ -353,8 +355,8 @@ test('la fila expone la comparación conductor/sistema y los documentos para el 
         'ruta_idruta' => $ruta->idruta,
         'orden' => 2,
         'geocerca' => 'PLANTA B',
-        'fhIndicado' => '2026-01-01 16:00:00',
-        'fhRegistro' => '2026-01-01 15:30:00',
+        'fhRegistro' => '2026-01-01 16:00:00',
+        'fhIndicado' => '2026-01-01 15:30:00',
     ]);
 
     DocRuta::create([

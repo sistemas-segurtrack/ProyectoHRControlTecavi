@@ -374,14 +374,15 @@ class ConsultaHojasRuta
             // Tabla principal.
             'fh_inicio' => $this->fecha($row['fh_inicio'] ?? null),
             'fh_final' => $this->fecha($row['fh_final'] ?? null),
-            // Modal — punto inicial: lo indicado por el conductor vs. lo registrado por el sistema.
-            'cond_inicial' => $this->fecha($row['fh_indicado_inicial'] ?? null),
-            'sis_inicial' => $this->fecha($row['fh_inicio'] ?? null),
-            'dif_inicial' => $this->diferencia($row['fh_inicio'] ?? null, $row['fh_indicado_inicial'] ?? null),
+            // Modal — punto inicial: la hora que escribió el conductor en la PWA
+            // (`fhRegistro`) vs. cuándo la marcó el servidor (`fhIndicado`, siempre now()).
+            'cond_inicial' => $this->fecha($row['fh_inicio'] ?? null),
+            'sis_inicial' => $this->fecha($row['fh_indicado_inicial'] ?? null),
+            'dif_inicial' => $this->diferencia($row['fh_indicado_inicial'] ?? null, $row['fh_inicio'] ?? null),
             // Modal — punto final (última parada registrada).
-            'cond_final' => $this->fecha($row['fh_indicado_final'] ?? null),
-            'sis_final' => $this->fecha($row['fh_final'] ?? null),
-            'dif_final' => $this->diferencia($row['fh_final'] ?? null, $row['fh_indicado_final'] ?? null),
+            'cond_final' => $this->fecha($row['fh_final'] ?? null),
+            'sis_final' => $this->fecha($row['fh_indicado_final'] ?? null),
+            'dif_final' => $this->diferencia($row['fh_indicado_final'] ?? null, $row['fh_final'] ?? null),
             'documentos' => $documentos[$idruta] ?? [],
             'tramos' => $tramos[$idruta] ?? [],
             // En curso: mismo código/color que ya usa el estado por tramo
@@ -577,14 +578,15 @@ class ConsultaHojasRuta
             // Tabla principal.
             'fh_inicio' => $this->fecha($row['fh_inicio'] ?? null),
             'fh_final' => $this->fecha($row['fh_final'] ?? null),
-            // Modal / export — punto inicial: lo indicado por el conductor vs. lo registrado por el sistema.
-            'cond_inicial' => $this->fecha($row['fhIndicado'] ?? null),
-            'sis_inicial' => $this->fecha($row['fh_inicio'] ?? null),
-            'dif_inicial' => $this->diferencia($row['fh_inicio'] ?? null, $row['fhIndicado'] ?? null),
+            // Modal / export — punto inicial: la hora que escribió el conductor en la
+            // PWA (`fhRegistro`) vs. cuándo la marcó el servidor (`fhIndicado`, siempre now()).
+            'cond_inicial' => $this->fecha($row['fh_inicio'] ?? null),
+            'sis_inicial' => $this->fecha($row['fhIndicado'] ?? null),
+            'dif_inicial' => $this->diferencia($row['fhIndicado'] ?? null, $row['fh_inicio'] ?? null),
             // Modal / export — punto final (orden siguiente).
-            'cond_final' => $this->fecha($row['fh_indicado_final'] ?? null),
-            'sis_final' => $this->fecha($row['fh_final'] ?? null),
-            'dif_final' => $this->diferencia($row['fh_final'] ?? null, $row['fh_indicado_final'] ?? null),
+            'cond_final' => $this->fecha($row['fh_final'] ?? null),
+            'sis_final' => $this->fecha($row['fh_indicado_final'] ?? null),
+            'dif_final' => $this->diferencia($row['fh_indicado_final'] ?? null, $row['fh_final'] ?? null),
             'documentos' => array_merge(
                 $documentos[$idActual] ?? [],
                 $documentos[$idSiguiente] ?? [],
