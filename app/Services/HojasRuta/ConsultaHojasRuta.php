@@ -223,6 +223,11 @@ class ConsultaHojasRuta
             ->selectSub($ultimo('kilometraje'), 'km_final')
             ->selectSub($ultimo('fhRegistro'), 'fh_final')
             ->selectSub($ultimo('fhIndicado'), 'fh_indicado_final')
+            // Estado de la última parada registrada (no el de `ruta.estado`,
+            // que es el de toda la hoja): distingue, en `transformarRuta()`,
+            // una hoja ACTIVA que ya cerró todos sus tramos de una que
+            // todavía tiene uno abierto (en curso).
+            ->selectSub($ultimo('estado'), 'ultimo_estado')
             ->when($filtros['conductor'] !== '', fn ($q) => $q->where('ruta.piloto', 'like', "%{$filtros['conductor']}%"))
             ->when($filtros['placa'] !== '', fn ($q) => $q->where('ruta.placa', 'like', "%{$filtros['placa']}%"))
             ->when($filtros['id'] !== '', fn ($q) => $q->where('ruta.idruta', 'like', "%{$filtros['id']}%"))
@@ -330,6 +335,15 @@ class ConsultaHojasRuta
         $estado = (string) ($row['estado'] ?? '');
         $idruta = (string) ($row['idruta'] ?? '');
 
+        // `ruta.estado` sigue en ACTIVA tanto si la hoja ya cerró todos sus
+        // tramos (esperando el documento que la finalice) como si el último
+        // sigue abierto (el conductor en curso, todavía sin registrar su
+        // cierre) — dos situaciones distintas que el encabezado del listado
+        // debe distinguir. Se detecta mirando el estado de la ÚLTIMA parada
+        // registrada: si sigue EN_RUTA, la hoja está "en curso" de verdad.
+        $enCurso = $estado === Ruta::ACTIVA
+            && (string) ($row['ultimo_estado'] ?? '') === DetalleRuta::EN_RUTA;
+
         return [
             'id' => $idruta,
             'hoja' => $row['idruta'] ?? null,
@@ -358,8 +372,11 @@ class ConsultaHojasRuta
             'dif_final' => $this->diferencia($row['fh_final'] ?? null, $row['fh_indicado_final'] ?? null),
             'documentos' => $documentos[$idruta] ?? [],
             'tramos' => $tramos[$idruta] ?? [],
-            'estado' => $estado,
-            'estado_label' => self::ESTADOS_RUTA[$estado] ?? $estado,
+            // En curso: mismo código/color que ya usa el estado por tramo
+            // (`ESTADOS`, `EstadoBadge.vue` lo pinta en azul) — no es un
+            // tercer valor posible de `ruta.estado`, es solo cómo se muestra.
+            'estado' => $enCurso ? DetalleRuta::EN_RUTA : $estado,
+            'estado_label' => $enCurso ? self::ESTADOS[DetalleRuta::EN_RUTA] : (self::ESTADOS_RUTA[$estado] ?? $estado),
         ];
     }
 

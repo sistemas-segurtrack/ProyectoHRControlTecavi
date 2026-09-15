@@ -264,6 +264,33 @@ test('el Estado de la fila es el de la tabla ruta, no el del tramo', function ()
         );
 });
 
+test('una hoja ACTIVA con la última parada EN RUTA se muestra como EN RUTA, no ACTIVA', function () {
+    $contacto = Contacto::factory()->create();
+    $enCurso = Ruta::factory()->create(['idruta' => 'T000503', 'estado' => Ruta::ACTIVA]);
+
+    // Tramo 1 ya cerrado (FI); la parada 3 abre un tramo nuevo y sigue
+    // EN_RUTA -- la hoja está en curso de verdad, no solo "activa" a la
+    // espera de un documento que la finalice.
+    DetalleRuta::factory()->for($contacto, 'contacto')->create([
+        'ruta_idruta' => $enCurso->idruta, 'orden' => 1, 'estado' => DetalleRuta::FINALIZADO,
+    ]);
+    DetalleRuta::factory()->for($contacto, 'contacto')->create([
+        'ruta_idruta' => $enCurso->idruta, 'orden' => 2, 'estado' => DetalleRuta::FINALIZADO,
+    ]);
+    DetalleRuta::factory()->for($contacto, 'contacto')->create([
+        'ruta_idruta' => $enCurso->idruta, 'orden' => 3, 'estado' => DetalleRuta::EN_RUTA,
+    ]);
+
+    $this->actingAs(crearAdmin())
+        ->get(route('modulos.rutas.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('rutas', 1)
+            ->where('rutas.0.hoja', 'T000503')
+            ->where('rutas.0.estado', DetalleRuta::EN_RUTA)
+            ->where('rutas.0.estado_label', 'EN RUTA')
+        );
+});
+
 test('el filtro Estado busca por ruta.estado', function () {
     $contacto = Contacto::factory()->create();
     $activa = Ruta::factory()->create(['estado' => Ruta::ACTIVA]);
@@ -413,6 +440,10 @@ test('el formulario PDF trae Fecha Inicio - Fecha Final, Estado y Observación',
         'orden' => 1,
         'observacion' => 'Camino en mal estado',
         'fhRegistro' => '2026-02-01 09:00:00',
+        // Sin cerrar (nace EN_RUTA vía DetalleRutaObserver): la hoja está
+        // en curso de verdad, así que el estado mostrado es "EN RUTA", no
+        // "ACTIVA" (ver `ConsultaHojasRuta::transformarRuta()`).
+        'estado' => DetalleRuta::FINALIZADO,
     ]);
 
     $hojas = app(ConsultaHojasRuta::class);
