@@ -98,6 +98,7 @@ class ConstruirResumenHojaRuta
             fecha: $detalle?->fhRegistro,
             estadoLabel: self::ESTADOS[$ruta->estado] ?? (string) $ruta->estado,
             documentos: $documentos,
+            horaSistema: $detalle?->fhIndicado,
         );
     }
 }

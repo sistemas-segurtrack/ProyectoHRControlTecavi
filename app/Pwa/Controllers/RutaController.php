@@ -17,6 +17,7 @@ use App\Pwa\Models\PwaRuta;
 use App\Pwa\Requests\CrearRutaRequest;
 use App\Pwa\Requests\RegistrarOrdenRequest;
 use App\Pwa\Resources\RutaResource;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,6 +26,12 @@ class RutaController extends Controller
 {
     use GuardaDocumentoRuta;
     use ResuelveCatalogos;
+
+    /**
+     * Intentos para crear una hoja cuando otro envío simultáneo tomó el mismo
+     * código T###### (ver `store()`).
+     */
+    private const INTENTOS_CODIGO = 3;
 
     /**
      * Hoja de ruta en curso del conductor (o `null`).
@@ -65,7 +72,7 @@ class RutaController extends Controller
         $tipo = $this->tipoDocumentoAdjunto($request);
         $finaliza = $this->documentoFinaliza($tipo);
 
-        $ruta = DB::transaction(function () use ($conductor, $datos, $key, $request, $tipo, $finaliza): Ruta {
+        $crear = function () use ($conductor, $datos, $key, $request, $tipo, $finaliza): Ruta {
             $ruta = Ruta::create([
                 'idruta' => Ruta::siguienteCodigo(),
                 'placa' => $datos['placa'],
@@ -100,7 +107,32 @@ class RutaController extends Controller
             ]);
 
             return $ruta;
-        });
+        };
+
+        // El código T###### lo arma el servidor (nunca el celular: sin señal la
+        // hoja vive como LOCAL-xxxx hasta sincronizar) leyendo el último y
+        // sumando uno. Si dos envíos llegan a la vez (p. ej. dos celulares que
+        // recuperan señal juntos) ambos pueden leer el mismo último código: el
+        // que inserta segundo choca con la clave única y se reintenta con el
+        // siguiente libre, en vez de devolver un 500 que dejaría ese envío
+        // marcado con error en la cola offline.
+        $intentos = 0;
+        while (true) {
+            try {
+                $ruta = DB::transaction($crear);
+                break;
+            } catch (UniqueConstraintViolationException $e) {
+                // O fue este mismo envío repetido (misma Idempotency-Key) y el
+                // otro ya lo registró: se devuelve ese.
+                if ($key !== null && $previa = PwaRuta::where('idempotency_key', $key)->first()) {
+                    return $this->respuesta($previa->ruta_idruta, 200);
+                }
+
+                if (++$intentos >= self::INTENTOS_CODIGO) {
+                    throw $e;
+                }
+            }
+        }
 
         // Notificaciones por correo (no bloquean la respuesta: van a la cola).
         HojaRutaCreada::dispatch($ruta->idruta);

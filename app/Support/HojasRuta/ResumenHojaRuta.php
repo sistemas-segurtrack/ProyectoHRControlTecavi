@@ -12,7 +12,9 @@ use Carbon\CarbonInterface;
 final readonly class ResumenHojaRuta
 {
     /**
+     * @param  CarbonInterface|null  $fecha  la que indicó el conductor (`fhRegistro`, editable en la PWA)
      * @param  list<array{tipo: ?string, documento: ?string, producto: ?string, cantidad: ?string, envase: ?string, pesoNeto: ?string, pesoBruto: ?string}>  $documentos
+     * @param  CarbonInterface|null  $horaSistema  cuándo la marcó el servidor (`fhIndicado`, siempre `now()`)
      */
     public function __construct(
         public string $idruta,
@@ -25,5 +27,6 @@ final readonly class ResumenHojaRuta
         public ?CarbonInterface $fecha,
         public string $estadoLabel,
         public array $documentos = [],
+        public ?CarbonInterface $horaSistema = null,
     ) {}
 }

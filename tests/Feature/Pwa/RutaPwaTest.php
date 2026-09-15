@@ -8,6 +8,7 @@ use App\Models\HRControl\TipoDocumento;
 use App\Models\WialonSTK\WialonUnidad;
 use App\Pwa\Models\PwaRuta;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
@@ -153,6 +154,29 @@ test('la unidad SÍ se puede elegir si su hoja quedó ACTIVA sin ningún tramo a
     Sanctum::actingAs(conductorPwa('22222222'), ['*']);
     $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '500'])
         ->assertCreated();
+});
+
+test('si otro envío toma el mismo código T###### a la vez, crear la ruta reintenta en vez de fallar', function () {
+    Sanctum::actingAs(conductorPwa(), ['*']);
+
+    // Simula otro celular sincronizando justo a la vez: inserta ese mismo
+    // código entre que se calcula y se guarda la hoja, solo en el 1er intento.
+    $intentos = 0;
+    Ruta::creating(function (Ruta $ruta) use (&$intentos): void {
+        if (++$intentos === 1) {
+            DB::table('ruta')->insert([
+                'idruta' => $ruta->idruta,
+                'placa' => 'OTRO-CELULAR',
+                'estado' => Ruta::ACTIVA,
+            ]);
+        }
+    });
+
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100'])
+        ->assertCreated()
+        ->assertJsonPath('data.placa', 'AAA-111');
+
+    expect($intentos)->toBe(2);
 });
 
 test('la unidad vuelve a estar libre una vez que su hoja de ruta finaliza', function () {

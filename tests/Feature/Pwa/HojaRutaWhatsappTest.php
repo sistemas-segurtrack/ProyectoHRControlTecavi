@@ -18,23 +18,28 @@ function fakeWhatsappOk(): void
     ])]);
 }
 
-test('crear una hoja de ruta avisa por whatsapp al contacto de la geocerca inicial', function () {
+test('crear una hoja de ruta avisa por whatsapp el inicio del tramo al contacto de la geocerca inicial', function () {
     fakeWhatsappOk();
+    $this->travelTo(now()->setDateTime(2026, 9, 15, 14, 30));
     Contacto::factory()->create([
         'geocerca' => 'PLANTA LIMA',
         'telefonos' => ['999512202', '958240782'],
     ]);
     Sanctum::actingAs(conductorPwa(), ['*']);
 
-    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '100'])
-        ->assertCreated();
+    // La hora del mensaje es la de marcación del sistema, no la que indica el conductor.
+    $this->postJson('/api/pwa/rutas', [
+        'placa' => 'AAA-111',
+        'geocerca' => 'PLANTA LIMA',
+        'kilometraje' => '100',
+        'fhRegistro' => '2026-09-15T09:00',
+    ])->assertCreated();
 
     Http::assertSent(function (Request $r) {
         return $r->url() === config('services.whatsapp.url')
             && $r['TipoEnvio'] === 'numeros'
             && $r['Destinatarios'] === ['51999512202', '51958240782']
-            && str_contains((string) $r['Contenido'], 'T000001')
-            && str_contains((string) $r['Contenido'], 'creada');
+            && $r['Contenido'] === 'SE ESTA INICIANDO TRAMO EN PLANTA LIMA CON HOJA DE RUTA: T000001 a las: 15/09/2026 14:30';
     });
 });
 
@@ -70,7 +75,7 @@ test('contacto sin telefonos en la geocerca no manda ningun whatsapp', function 
     Http::assertNothingSent();
 });
 
-test('crear con un documento condicionaFin=1 manda whatsapp de creada y de finalizada', function () {
+test('crear con un documento condicionaFin=1 manda whatsapp de inicio y de fin del tramo', function () {
     fakeWhatsappOk();
     Storage::fake('public');
     Contacto::factory()->create(['geocerca' => 'PLANTA LIMA', 'telefonos' => ['999512202']]);
@@ -90,11 +95,11 @@ test('crear con un documento condicionaFin=1 manda whatsapp de creada y de final
     ])->assertCreated();
 
     Http::assertSentCount(2);
-    Http::assertSent(fn (Request $r) => str_contains((string) $r['Contenido'], 'creada'));
-    Http::assertSent(fn (Request $r) => str_contains((string) $r['Contenido'], 'finalizada'));
+    Http::assertSent(fn (Request $r) => str_starts_with((string) $r['Contenido'], 'SE ESTA INICIANDO TRAMO EN PLANTA LIMA'));
+    Http::assertSent(fn (Request $r) => str_starts_with((string) $r['Contenido'], 'SE HA FINALIZADO EL TRAMO EN PLANTA LIMA'));
 });
 
-test('registrar un avance que finaliza avisa a los telefonos de la geocerca del avance', function () {
+test('registrar un avance que finaliza avisa el fin del tramo a los telefonos de la geocerca del avance', function () {
     fakeWhatsappOk();
     Storage::fake('public');
     Contacto::factory()->create(['geocerca' => 'ORIGEN', 'telefonos' => ['911111111']]);
@@ -116,13 +121,14 @@ test('registrar un avance que finaliza avisa a los telefonos de la geocerca del 
         ],
     ])->assertCreated();
 
-    Http::assertSent(fn (Request $r) => str_contains((string) $r['Contenido'], 'finalizada')
+    Http::assertSent(fn (Request $r) => str_starts_with((string) $r['Contenido'], "SE HA FINALIZADO EL TRAMO EN DESTINO CON HOJA DE RUTA: {$idruta} a las: ")
         && $r['Destinatarios'] === ['51922222222']);
-    // La parada par que finaliza la hoja manda solo el aviso final.
-    Http::assertNotSent(fn (Request $r) => str_contains((string) $r['Contenido'], 'tramo cerrado'));
+    // Inicio (ORIGEN) + fin (DESTINO): la parada par que finaliza la hoja
+    // manda un solo aviso, no además el de tramo cerrado.
+    Http::assertSentCount(2);
 });
 
-test('cerrar un tramo (parada par) avisa por whatsapp a la geocerca de esa parada, sin finalizar', function () {
+test('cerrar un tramo (parada par) avisa por whatsapp el fin del tramo a la geocerca de esa parada', function () {
     fakeWhatsappOk();
     Storage::fake('public');
     Contacto::factory()->create(['geocerca' => 'DESTINO', 'telefonos' => ['922222222']]);
@@ -143,7 +149,7 @@ test('cerrar un tramo (parada par) avisa por whatsapp a la geocerca de esa parad
     ])->assertCreated();
 
     Http::assertSentCount(1);
-    Http::assertSent(fn (Request $r) => str_contains((string) $r['Contenido'], "*Hoja de ruta {$idruta}* tramo cerrado")
+    Http::assertSent(fn (Request $r) => str_starts_with((string) $r['Contenido'], "SE HA FINALIZADO EL TRAMO EN DESTINO CON HOJA DE RUTA: {$idruta} a las: ")
         && $r['Destinatarios'] === ['51922222222']);
 });
 

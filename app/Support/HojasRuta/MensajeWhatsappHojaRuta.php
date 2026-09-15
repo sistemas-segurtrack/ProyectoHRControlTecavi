@@ -4,37 +4,38 @@ namespace App\Support\HojasRuta;
 
 /**
  * Arma el texto plano de WhatsApp a partir del mismo {@see ResumenHojaRuta}
- * que ya arma `ConstruirResumenHojaRuta` para el correo. `*texto*` es la
- * sintaxis de negrita de WhatsApp (no Markdown `**`). Sin emojis (a pedido
- * del usuario).
+ * que ya arma `ConstruirResumenHojaRuta` para el correo, con las plantillas
+ * pedidas por el usuario: la parada que ABRE la hoja avisa el inicio del
+ * tramo; la que lo CIERRA (tramo cerrado o fin de la hoja) avisa su fin.
+ *
+ * La hora es la de marcación del sistema (`fhIndicado`, cuando el servidor
+ * recibió la parada), no la que escribió el conductor. Sin emojis.
  */
 class MensajeWhatsappHojaRuta
 {
     public static function creada(ResumenHojaRuta $r): string
     {
-        return self::cuerpo('creada', $r);
+        return self::cuerpo('SE ESTA INICIANDO TRAMO', $r);
     }
 
     public static function tramoCerrado(ResumenHojaRuta $r): string
     {
-        return self::cuerpo('tramo cerrado', $r);
+        return self::cuerpo('SE HA FINALIZADO EL TRAMO', $r);
     }
 
+    /**
+     * La parada que finaliza la hoja también cierra su tramo: misma plantilla.
+     */
     public static function finalizada(ResumenHojaRuta $r): string
     {
-        return self::cuerpo('finalizada', $r);
+        return self::tramoCerrado($r);
     }
 
-    private static function cuerpo(string $estado, ResumenHojaRuta $r): string
+    private static function cuerpo(string $accion, ResumenHojaRuta $r): string
     {
-        $lineas = [
-            "*Hoja de ruta {$r->idruta}* {$estado}",
-            'Conductor: '.($r->piloto ?? '-'),
-            'Placa: '.($r->placa ?? '-'),
-            'Geocerca: '.($r->geocerca ?? '-'),
-            'Fecha: '.($r->fecha?->format('d/m/Y H:i') ?? '-'),
-        ];
+        $geocerca = $r->geocerca ?? '-';
+        $hora = $r->horaSistema?->format('d/m/Y H:i') ?? '-';
 
-        return implode("\n", $lineas);
+        return "{$accion} EN {$geocerca} CON HOJA DE RUTA: {$r->idruta} a las: {$hora}";
     }
 }
