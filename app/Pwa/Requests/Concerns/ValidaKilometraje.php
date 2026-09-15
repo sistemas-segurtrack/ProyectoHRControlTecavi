@@ -2,7 +2,6 @@
 
 namespace App\Pwa\Requests\Concerns;
 
-use App\Services\Wialon\WialonService;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
@@ -19,11 +18,20 @@ use Illuminate\Validation\Validator;
 trait ValidaKilometraje
 {
     /**
+     * Tope del kilometraje que puede ingresar el conductor. Queda por debajo
+     * del máximo del contador de Wialon (`WialonService::CONTADOR_KM_MAX`,
+     * 4294967) para dejar margen: como cada parada debe superar a la
+     * anterior, una parada registrada justo en ese máximo bloquearía la
+     * siguiente.
+     */
+    public const KILOMETRAJE_MAXIMO = 4294800;
+
+    /**
      * @return array<int, ValidationRule|string>
      */
     protected function reglasKilometraje(): array
     {
-        return ['required', 'integer', 'min:0', 'max:'.WialonService::CONTADOR_KM_MAX];
+        return ['required', 'integer', 'min:0', 'max:'.self::KILOMETRAJE_MAXIMO];
     }
 
     /**

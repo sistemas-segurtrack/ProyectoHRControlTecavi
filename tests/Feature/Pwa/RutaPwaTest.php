@@ -247,6 +247,20 @@ test('una unidad con su hoja ya finalizada no hereda nada', function () {
         ->assertJsonPath('data.carreta', 'CAR-1');
 });
 
+test('el kilometraje admite hasta 4294800 y rechaza más', function () {
+    Sanctum::actingAs(conductorPwa(), ['*']);
+
+    $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '4294801'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('kilometraje');
+
+    // Con el tope de 4294800 la parada siguiente todavía puede ser mayor.
+    $idruta = $this->postJson('/api/pwa/rutas', ['placa' => 'AAA-111', 'geocerca' => 'PLANTA LIMA', 'kilometraje' => '4294700'])
+        ->assertCreated()->json('data.idruta');
+    $this->postJson("/api/pwa/rutas/{$idruta}/ordenes", ['geocerca' => 'DESTINO', 'kilometraje' => '4294800'])
+        ->assertCreated();
+});
+
 test('la unidad vuelve a estar libre una vez que su hoja de ruta finaliza', function () {
     Storage::fake('public');
     $tipo = TipoDocumento::create(['nombre' => 'GUIA', 'condicionaFin' => '1']);

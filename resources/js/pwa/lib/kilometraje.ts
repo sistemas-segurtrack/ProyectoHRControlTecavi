@@ -1,7 +1,11 @@
 import type { Orden } from '../stores/auth';
 
-/** Espejo de `WialonService::CONTADOR_KM_MAX` (backend). */
-const KILOMETRAJE_MAXIMO = 4294967;
+/**
+ * Espejo de `ValidaKilometraje::KILOMETRAJE_MAXIMO` (backend): por debajo del
+ * máximo del contador de Wialon (4294967) para que una parada en el tope no
+ * bloquee la siguiente, que siempre debe ser mayor.
+ */
+const KILOMETRAJE_MAXIMO = 4294800;
 
 const ENTERO = /^\d+$/;
 
